@@ -1,0 +1,17 @@
+# machine written, pnpm owns its own formatting
+pnpm-lock.yaml
+
+# generated prisma client
+prisma/generated
+
+# build output
+.next
+out
+build
+coverage
+
+# specs and plans, kept untracked and hand written
+docs/superpowers
+
+# mirrored from .claude/skills by the shadcn skill installer
+.agents

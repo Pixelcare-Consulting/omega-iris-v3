@@ -1,0 +1,266 @@
+generator client {
+    provider = "prisma-client"
+    output   = "./generated"
+}
+
+datasource db {
+    provider = "postgresql"
+}
+
+model User {
+    id                       String    @id @default(cuid())
+    code                     Int       @unique @default(autoincrement())
+    fname                    String
+    lname                    String
+    mname                    String?
+    suffix                   String?
+    name                     String
+    email                    String    @unique
+    emailVerified            Boolean   @default(false)
+    image                    String?
+    username                 String    @unique
+    roleCode                 Int
+    isActive                 Boolean   @default(true)
+    isDefaultPasswordChanged Boolean   @default(false)
+    isLocked                 Boolean   @default(false)
+    isSystem                 Boolean   @default(false)
+    failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and successfully signin
+    lastSignin               DateTime?
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    role                    Role             @relation(fields: [roleCode], references: [code])
+    sessions                AuthSession[]
+    accounts                Account[]
+    uploadedFileAttachments FileAttachment[] @relation(name: "UploadedFileAttachments")
+
+    @@index([roleCode])
+    @@index([deletedAt])
+}
+
+model Role {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    name        String
+    key         String  @unique
+    description String?
+    color       String?
+    isSystem    Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    users            User[]
+    rolePermissions  RolePermission[]
+    roleReports      RoleReport[]
+    roleSapDatabases RoleSapDatabase[]
+}
+
+model Permission {
+    id             String   @id @default(cuid())
+    code           String   @unique
+    name           String
+    description    String?  @default("")
+    isParent       Boolean  @default(false)
+    isSystem       Boolean  @default(false)
+    parentCode     String?
+    allowedActions String[] //* default actions 'view', 'create', 'edit', 'delete'
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    parent          Permission?      @relation(name: "NestedPermissions", fields: [parentCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    children        Permission[]     @relation("NestedPermissions")
+    rolePermissions RolePermission[]
+
+    @@index([parentCode])
+}
+
+model RolePermission {
+    roleCode       Int
+    permissionCode String
+    actions        String[] @default([])
+
+    role       Role       @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    permission Permission @relation(fields: [permissionCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@id([roleCode, permissionCode])
+    @@index([permissionCode])
+    @@index([actions], type: Gin)
+}
+
+model AuthSession {
+    id        String   @id
+    expiresAt DateTime
+    token     String   @unique
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+    ipAddress String?
+    userAgent String?
+    userId    String
+    dbCode    String? //* the sap database picked after signin, only the select action writes it
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+    @@index([dbCode])
+}
+
+model Account {
+    id         String @id
+    accountId  String
+    providerId String
+    userId     String
+
+    accessToken           String?
+    refreshToken          String?
+    idToken               String?
+    accessTokenExpiresAt  DateTime?
+    refreshTokenExpiresAt DateTime?
+    scope                 String?
+    password              String?
+    createdAt             DateTime  @default(now())
+    updatedAt             DateTime  @updatedAt
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+    @@index([userId])
+}
+
+model Verification {
+    id         String   @id
+    identifier String
+    value      String
+    expiresAt  DateTime
+    createdAt  DateTime @default(now())
+    updatedAt  DateTime @updatedAt
+
+    @@index([identifier])
+}
+
+//* REPORT TYPE
+//? 1 - Dashboard 
+//? 2 - Paginated 
+//* only 1 default report, which visible to any users
+model Report {
+    id          String  @id @default(cuid())
+    code        Int     @unique @default(autoincrement())
+    title       String
+    fileName    String  @unique
+    description String?
+    isActive    Boolean @default(true)
+    type        String
+    data        String  @default("")
+    isFeatured  Boolean @default(true)
+    isDefault   Boolean @default(false)
+    isInternal  Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    roleReports RoleReport[]
+}
+
+//* plain join table, the role form replaces its rows on every save like RolePermission
+model RoleReport {
+    roleCode   Int
+    reportCode Int
+
+    role   Role   @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    report Report @relation(fields: [reportCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@id([roleCode, reportCode])
+    @@index([reportCode])
+}
+
+//* plain join table, the role form replaces its rows on every save like RolePermission
+model RoleSapDatabase {
+    roleCode        Int
+    sapDatabaseCode String
+
+    role        Role        @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+    sapDatabase SapDatabase @relation(fields: [sapDatabaseCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@id([roleCode, sapDatabaseCode])
+    @@index([sapDatabaseCode])
+}
+
+model FileAttachment {
+    id           String @id @default(cuid())
+    moduleName   String //* which module owns the file, e.g. 'items'
+    referenceId  String //* which record in that module, e.g. an item's filingNum, a String so every module can use its own identifier
+    disk         String //* which disk holds the object right now, e.g. 'fs', 's3'
+    key          String @unique
+    originalName String
+    mimeType     String
+    size         Int
+
+    //* upload only, an attachment is never edited, so there is nothing to track an update with
+    uploadedAt DateTime @default(now())
+    uploadedBy Int?
+
+    uploadedByUser User? @relation(name: "UploadedFileAttachments", fields: [uploadedBy], references: [code], onUpdate: Cascade)
+
+    //* moduleName + referenceId stand in for a foreign key, so one table serves every module
+    @@index([moduleName, referenceId])
+    @@index([uploadedBy])
+}
+
+//* multi-tenant sap database switcher
+//* for the time being single user will access the DB and just stored the session seprately
+//* And just query / use session based on the selected SAP DB (db code)
+model SapDatabase {
+    id       String  @id @default(cuid())
+    name     String
+    dbCode   String  @unique
+    order    Int     @default(0)
+    isActive Boolean @default(true) //* inactive DBs will not be shown
+
+    createdAt        DateTime          @default(now())
+    updatedAt        DateTime          @default(now()) @updatedAt
+    sapSession       SapSession?
+    roleSapDatabases RoleSapDatabase[]
+}
+
+model SapSession {
+    id        String   @id @default(cuid())
+    dbCode    String   @unique //* one active session per DB
+    b1Session String
+    routeId   String?
+    expiresAt DateTime
+
+    sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+}
+
+//* test table for test data table
+model DataTableTestData {
+    id        String   @id @default(cuid())
+    customer  String
+    email     String
+    status    String
+    amount    Int
+    isValid   Boolean  @default(true)
+    link      String?
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+}
