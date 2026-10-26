@@ -102,7 +102,8 @@ import {
   Maximize2,
   CircleHelp,
   Lock,
-  History
+  History,
+  Handshake
 } from 'lucide-react'
 
 export const Icons = {
@@ -208,7 +209,8 @@ export const Icons = {
   minimize: Minimize2,
   maximize: Maximize2,
   help: CircleHelp,
-  history: History
+  history: History,
+  handshake: Handshake
 }
 
 export type Icon = LucideIcon

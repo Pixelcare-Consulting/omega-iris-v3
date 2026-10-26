@@ -46,7 +46,7 @@ export const EMPTY_FILTER_VALUE = '__EMPTY__'
 export const EMPTY_FILTER_LABEL = '(Empty)'
 
 export const DEFAULT_PAGINATION_PAGE_INDEX = 0
-export const DEFAULT_PAGINATION_PAGE_SIZE = 10
+export const DEFAULT_PAGINATION_PAGE_SIZE = 20
 
 export const DEFAULT_DATA_TABLE_PARAMS: DataTableParams = {
   page: DEFAULT_PAGINATION_PAGE_INDEX + 1,

@@ -1,6 +1,9 @@
 import 'server-only'
 
+import { headers } from 'next/headers'
+
 import db from '@/lib/db'
+import { auth } from '@/lib/auth'
 import { logger } from '@/lib/logger'
 import { Prisma } from '@/prisma/generated/client'
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
@@ -60,6 +63,18 @@ export async function getSapDatabaseAccess(dbCode?: string | null, roleCode?: nu
     logger.error(err, '[GET_SAP_DATABASE_ACCESS_ERROR]:')
     return { sapDatabases: [], isAllowed: false, hasAnySapDatabase: false, isError: true }
   }
+}
+
+//* the session's database for server components, null when unset or no longer allowed
+export async function getCurrentDbCode() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  const dbCode = session?.session.dbCode
+
+  if (!dbCode) return null
+
+  const { isAllowed } = await getSapDatabaseAccess(dbCode, session.user?.roleCode)
+
+  return isAllowed ? dbCode : null
 }
 
 //* raw write on the session row, the only way dbCode gets set or cleared

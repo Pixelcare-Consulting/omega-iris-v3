@@ -5,6 +5,12 @@ export const EXPIRY_BUFFER = 60 * 1000 //* treat a session as expired a minute e
 //* the service layer api root, appended to SAP_BASE_URL
 export const SAP_API_PATH = '/b1s/v2'
 
+//* rows per page when walking a whole collection
+export const SAP_DEFAULT_PAGE_SIZE = 500
+
+//* turns paging off, only for small lookup lists, never master data
+export const SAP_NO_PAGINATION = 'odata.maxpagesize=0'
+
 export const DEFAULT_SAP_DATABASES = [
   { dbCode: 'PXC-LIVE_PH_2025', name: 'PXC PH', order: 1 },
   { dbCode: 'PXC-LIVE_SG_2025', name: 'PXC SG', order: 2 },

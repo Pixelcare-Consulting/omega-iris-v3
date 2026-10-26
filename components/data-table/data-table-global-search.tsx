@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 type DataTableGlobalSearchProps<TData> = InputGroupProps & {
   table: Table<TData>
   delay?: number
+  placeholder?: string //* name the searched fields, e.g. 'Search code, name...'
   inputGroupInputProps?: InputGroupInputProps
   isLoading?: boolean
 }
@@ -19,6 +20,7 @@ type DataTableGlobalSearchProps<TData> = InputGroupProps & {
 export default function DataTableGlobalSearch<TData>({
   table,
   delay = 700,
+  placeholder = 'Search...',
   inputGroupInputProps,
   isLoading,
   ...props
@@ -41,7 +43,7 @@ export default function DataTableGlobalSearch<TData>({
         {...inputGroupInputProps}
         ref={inputRef}
         defaultValue={globalFilter}
-        placeholder='Search...'
+        placeholder={placeholder}
         onChange={debounceSearch}
       />
 

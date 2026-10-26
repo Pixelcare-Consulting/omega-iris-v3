@@ -20,12 +20,12 @@ async function main() {
   if (isParallel) {
     await db.sapSession.updateMany({ where: { dbCode }, data: { expiresAt: new Date(0) } })
 
-    const calls = Array.from({ length: PARALLEL_CALLS }, () => sapFetch(dbCode, { path: 'CompanyService_GetCompanyInfo', method: 'POST' }))
+    const calls = Array.from({ length: PARALLEL_CALLS }, () => sapFetch(dbCode, 'company.info'))
     const results = await Promise.all(calls)
 
     console.log(results.map((result) => (result.ok ? 'ok' : `${result.code}: ${result.message}`)))
   } else {
-    const result = await sapFetch(dbCode, { path: 'CompanyService_GetCompanyInfo', method: 'POST' })
+    const result = await sapFetch(dbCode, 'company.info')
     console.log(result.ok ? { ok: true, status: result.status } : result)
   }
 

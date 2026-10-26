@@ -1,4 +1,5 @@
 import { globalSearchFilterFn } from '@/lib/data-table'
+import { DEFAULT_PAGINATION_PAGE_INDEX, DEFAULT_PAGINATION_PAGE_SIZE } from '@/constants/data-table'
 import {
   ColumnFiltersState,
   ColumnPinningState,
@@ -28,7 +29,7 @@ export function useDataTableClient<TData>(props: UseDataTableProps<TData>) {
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>(initialState.rowSelection ?? {})
   const [sorting, setSorting] = useState<SortingState>(initialState.sorting ?? [])
-  const [pagination, setPagination] = useState<PaginationState>(initialState.pagination ?? { pageIndex: 0, pageSize: 10 })
+  const [pagination, setPagination] = useState<PaginationState>(initialState.pagination ?? { pageIndex: DEFAULT_PAGINATION_PAGE_INDEX, pageSize: DEFAULT_PAGINATION_PAGE_SIZE }) // prettier-ignore
 
   const [globalFilter, setGlobalFilter] = useState<string>(initialState.globalFilter ?? '')
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initialState.columnFilters ?? [])

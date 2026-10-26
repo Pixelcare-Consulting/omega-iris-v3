@@ -15,6 +15,7 @@ export const PERMISSIONS_CODES = {
   ROLES: 'p-roles',
   USERS: 'p-users',
   SETTINGS: 'p-settings',
+  BUSINESS_PARTNERS: 'p-business-partners',
   TEST: 'p-test'
 } as const
 
@@ -45,5 +46,14 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     parentCode: null,
     isSystem: true,
     allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['BUSINESS_PARTNERS'],
+    name: 'Business Partners',
+    description: 'SAP Business Partners Module',
+    isParent: false,
+    parentCode: null,
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'export']
   }
 ]
