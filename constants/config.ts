@@ -73,6 +73,14 @@ export const MENU_GROUPS: MenuGroup[] = [
         items: [],
         subjects: PERMISSIONS_CODES.BUSINESS_PARTNERS,
         actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+      },
+      {
+        title: 'Items',
+        url: '/items',
+        icon: Icons.package,
+        items: [],
+        subjects: PERMISSIONS_CODES.ITEMS,
+        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
       }
     ]
   }

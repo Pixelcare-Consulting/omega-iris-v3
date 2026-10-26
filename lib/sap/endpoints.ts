@@ -6,9 +6,14 @@ import {
   SapCountry,
   SapCurrency,
   SapDocumentTypeParams,
+  SapItem,
+  SapItemBody,
+  SapItemGroup,
+  SapManufacturer,
   SapSalesPerson,
   SapSeries,
-  SapState
+  SapState,
+  SapVatGroup
 } from '@/types/sap'
 import { SAP_NO_PAGINATION } from '@/constants/sap'
 
@@ -44,6 +49,7 @@ export function sapKey(value: string) {
 }
 
 type CardCodeParams = { cardCode: string }
+type ItemCodeParams = { itemCode: string }
 
 const NO_PAGING = { Prefer: SAP_NO_PAGINATION }
 
@@ -70,15 +76,27 @@ export const SAP_ENDPOINTS = {
     path: (p) => `BusinessPartners(${sapKey(p.cardCode)})`
   }),
 
+  //* items
+  'items.list': endpoint<SapCollection<SapItem>>({ method: 'GET', path: 'Items' }),
+  'items.count': endpoint<number>({ method: 'GET', path: 'Items/$count' }),
+  'items.get': endpoint<SapItem, undefined, ItemCodeParams>({ method: 'GET', path: (p) => `Items(${sapKey(p.itemCode)})` }),
+  'items.create': endpoint<SapItem, SapItemBody>({ method: 'POST', path: 'Items' }),
+  'items.update': endpoint<undefined, SapItemBody, ItemCodeParams>({ method: 'PATCH', path: (p) => `Items(${sapKey(p.itemCode)})` }),
+  'items.delete': endpoint<undefined, undefined, ItemCodeParams>({ method: 'DELETE', path: (p) => `Items(${sapKey(p.itemCode)})` }),
+
   //* numbering series
   'series.default': endpoint<SapSeries, SapDocumentTypeParams>({ method: 'POST', path: 'SeriesService_GetDefaultSeries' }),
+  'series.list': endpoint<SapCollection<SapSeries>, SapDocumentTypeParams>({ method: 'POST', path: 'SeriesService_GetDocumentSeries' }),
 
   //* lookups, small lists so they come back whole
   'bpGroups.list': endpoint<SapCollection<SapBusinessPartnerGroup>>({ method: 'GET', path: 'BusinessPartnerGroups', headers: NO_PAGING }), // prettier-ignore
   'currencies.list': endpoint<SapCollection<SapCurrency>>({ method: 'GET', path: 'Currencies', headers: NO_PAGING }),
   'salesPersons.list': endpoint<SapCollection<SapSalesPerson>>({ method: 'GET', path: 'SalesPersons', headers: NO_PAGING }),
   'countries.list': endpoint<SapCollection<SapCountry>>({ method: 'GET', path: 'Countries', headers: NO_PAGING }),
-  'states.list': endpoint<SapCollection<SapState>>({ method: 'GET', path: 'States', headers: NO_PAGING })
+  'states.list': endpoint<SapCollection<SapState>>({ method: 'GET', path: 'States', headers: NO_PAGING }),
+  'itemGroups.list': endpoint<SapCollection<SapItemGroup>>({ method: 'GET', path: 'ItemGroups', headers: NO_PAGING }),
+  'manufacturers.list': endpoint<SapCollection<SapManufacturer>>({ method: 'GET', path: 'Manufacturers', headers: NO_PAGING }),
+  'vatGroups.list': endpoint<SapCollection<SapVatGroup>>({ method: 'GET', path: 'VatGroups', headers: NO_PAGING })
 }
 
 export type SapEndpoints = typeof SAP_ENDPOINTS

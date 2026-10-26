@@ -101,7 +101,36 @@ export type SapSeries = {
   Series: number
   Name: string
   IsManual?: SapYesNo
+  Locked?: SapYesNo
 }
+
+export type SapItemType = 'itItems' | 'itLabor' | 'itTravel' | 'itFixedAssets'
+
+export type SapItem = {
+  ItemCode: string
+  ItemName: string
+  ItemType: SapItemType
+  ItemsGroupCode: number
+  InventoryItem?: SapYesNo
+  SalesItem?: SapYesNo
+  PurchaseItem?: SapYesNo
+  WTLiable?: SapYesNo
+  Manufacturer?: number | null
+  SalesVATGroup?: string | null
+  Valid?: SapYesNo
+  Frozen?: SapYesNo
+  Series?: number
+  CreateDate?: string | null
+  CreateTime?: string | null
+  UpdateDate?: string | null
+  UpdateTime?: string | null
+}
+
+export type SapItemBody = Partial<SapItem>
+
+export type SapItemGroup = { Number: number; GroupName: string }
+export type SapManufacturer = { Code: number; ManufacturerName: string }
+export type SapVatGroup = { Code: string; Name: string; Category: string; Inactive: SapYesNo }
 
 //* object code 2 is business partners, the sub type picks customer, vendor or lead
 export type SapDocumentTypeParams = { DocumentTypeParams: { Document: string; DocumentSubType?: string } }
