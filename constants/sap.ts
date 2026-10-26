@@ -2,6 +2,9 @@ export const REQUEST_TIMEOUT = 30_000 //* 30 seconds
 export const SESSION_TIMEOUT = 30 * 60 * 1000 //* fallback when sap does not report one
 export const EXPIRY_BUFFER = 60 * 1000 //* treat a session as expired a minute early
 
+export const SAP_LOGIN_RETRIES = 2 //* extra login tries when sap does not answer, so 3 in all
+export const SAP_LOGIN_RETRY_DELAY = 1000 //* pause between those tries
+
 //* the service layer api root, appended to SAP_BASE_URL
 export const SAP_API_PATH = '/b1s/v2'
 

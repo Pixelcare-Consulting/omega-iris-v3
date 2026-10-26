@@ -165,6 +165,7 @@ There is no test setup in this repo - verify with `pnpm lint` and `pnpm build`.
 4. Modify `--sidebar-accent`, `--sidebar-accent-foreground` in `app/globals.css` according to your desired theme color e.g.(`sky-300` at `15%` opacity, `sky-300`)
 5. Modify `signin page` welcome title color based on your desired theme color e.g.(`sky-500`)
 6. Modify `components/ui/sidebar.tsx` bg-color and text-color based on your desired theme color e.g.(`bg-sky-900`, `text-white`)
+7. The page loading bar (`NextTopLoader` in `app/layout.tsx`) uses `color='var(--primary)'`, so it follows the new theme on its own. To give it a different color, change that `color` prop
 
 ## Folder Structure
 

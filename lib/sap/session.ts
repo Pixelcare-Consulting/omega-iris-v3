@@ -4,12 +4,12 @@ import db from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { EXPIRY_BUFFER, SESSION_TIMEOUT } from '@/constants/sap'
 import { SapAuthCookies } from '@/types/sap'
-import { sapLogin, sapLogout } from './client'
+import { SapLoginOptions, sapLogin, sapLogout } from './client'
 
 //* one shared service account session per database, reused by every user
 //! app signout must never log out of sap, the session belongs to the database not the user
 
-type GetSapSessionResult = { ok: true; session: SapAuthCookies } | { ok: false; message: string }
+type GetSapSessionResult = { ok: true; session: SapAuthCookies } | { ok: false; message: string; isNoResponse?: boolean }
 
 //* one login at a time per database, so a slow login on one cannot stall another
 const refreshInflight = new Map<string, Promise<GetSapSessionResult>>()
@@ -27,7 +27,8 @@ async function readSession(dbCode: string) {
   return { stored, isValid }
 }
 
-export async function getSapSession(dbCode: string): Promise<GetSapSessionResult> {
+//* loginOptions only matter when a new login is needed, a waiting caller shares the running one
+export async function getSapSession(dbCode: string, loginOptions?: SapLoginOptions): Promise<GetSapSessionResult> {
   if (!dbCode) return { ok: false, message: 'No SAP database selected.' }
 
   try {
@@ -42,7 +43,7 @@ export async function getSapSession(dbCode: string): Promise<GetSapSessionResult
     //! await, so a db error inside the refresh lands in the catch below instead of throwing to the caller
     if (inflight) return await inflight
 
-    const refresh = refreshSapSession(dbCode).finally(() => refreshInflight.delete(dbCode))
+    const refresh = refreshSapSession(dbCode, loginOptions).finally(() => refreshInflight.delete(dbCode))
 
     refreshInflight.set(dbCode, refresh)
 
@@ -54,7 +55,7 @@ export async function getSapSession(dbCode: string): Promise<GetSapSessionResult
 }
 
 //* logs the stale session out and opens a new one
-async function refreshSapSession(dbCode: string): Promise<GetSapSessionResult> {
+async function refreshSapSession(dbCode: string, loginOptions?: SapLoginOptions): Promise<GetSapSessionResult> {
   //* another caller may have refreshed while we were queued
   const recheck = await readSession(dbCode)
 
@@ -76,9 +77,9 @@ async function refreshSapSession(dbCode: string): Promise<GetSapSessionResult> {
   //* log the old session out first so its license slot is freed
   if (recheck.stored?.b1Session) await sapLogout(toCookies(recheck.stored))
 
-  const login = await sapLogin(dbCode)
+  const login = await sapLogin(dbCode, loginOptions)
 
-  if ('error' in login) return { ok: false, message: login.error }
+  if ('error' in login) return { ok: false, message: login.error, isNoResponse: login.isNoResponse }
 
   const { b1session, routeid } = login.session
   const expiresAt = new Date(Date.now() + (login.sessionTimeout ?? SESSION_TIMEOUT))

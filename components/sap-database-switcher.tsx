@@ -17,7 +17,7 @@ import { Icons } from './icons'
 import SapDatabaseSwitchingOverlay from './sap-database-switching-overlay'
 
 export default function SapDatabaseSwitcher({ dbCode }: { dbCode: string | null }) {
-  const { stage, targetDbCode, isSwitching, switchDatabase } = useSapDatabase()
+  const { stage, targetDbCode, retryAttempt, isSwitching, switchDatabase } = useSapDatabase()
   const { data: sapDatabases, isLoading } = useSapDatabases()
 
   const current = sapDatabases.find((sapDb) => sapDb.dbCode === dbCode)
@@ -36,7 +36,7 @@ export default function SapDatabaseSwitcher({ dbCode }: { dbCode: string | null 
 
   return (
     <>
-      <SapDatabaseSwitchingOverlay stage={stage} databaseName={target?.name ?? targetDbCode} />
+      <SapDatabaseSwitchingOverlay stage={stage} databaseName={target?.name ?? targetDbCode} retryAttempt={retryAttempt} />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

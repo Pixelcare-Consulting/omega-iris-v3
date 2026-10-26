@@ -43,9 +43,13 @@ export const verifySapDatabaseConnectionClient = action
         return { error: true, status: 503, message: 'Could not check your database access. Please try again.', action: actionTag }
       if (!isAllowed) return { error: true, status: 403, message: 'You have no access to this database.', action: actionTag }
 
-      const sapSession = await getSapSession(dbCode)
+      //* one try only, the page retries a no-answer itself so it can show the attempt
+      const sapSession = await getSapSession(dbCode, { retries: 0 })
 
-      if (!sapSession.ok) return { error: true, status: 502, message: sapSession.message, action: actionTag }
+      if (!sapSession.ok) {
+        const isRetryable = !!sapSession.isNoResponse
+        return { error: true, status: isRetryable ? 504 : 502, message: sapSession.message, action: actionTag, isRetryable }
+      }
 
       return { error: false, status: 200, message: 'SAP connection successful', action: actionTag }
     } catch (err: any) {

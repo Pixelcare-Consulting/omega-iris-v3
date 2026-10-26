@@ -31,7 +31,7 @@ export default function ChooseDatabaseForm({ fullName, email, currentDbCode, opt
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('callbackUrl')
 
-  const { stage, targetDbCode, isSwitching, switchDatabase } = useSapDatabase()
+  const { stage, targetDbCode, retryAttempt, isSwitching, switchDatabase } = useSapDatabase()
 
   const form = useForm({
     mode: 'onChange',
@@ -66,7 +66,7 @@ export default function ChooseDatabaseForm({ fullName, email, currentDbCode, opt
 
   return (
     <FormProvider {...form}>
-      <SapDatabaseSwitchingOverlay stage={stage} databaseName={targetName} />
+      <SapDatabaseSwitchingOverlay stage={stage} databaseName={targetName} retryAttempt={retryAttempt} />
 
       <form className='flex flex-col gap-4' onSubmit={form.handleSubmit(handleOnSubmit)}>
         <FieldGroup>

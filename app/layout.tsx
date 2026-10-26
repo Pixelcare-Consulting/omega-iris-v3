@@ -30,7 +30,7 @@ export default function RootLayout({
           <TooltipProvider>
             <ToastProvider>
               <NextTopLoader
-                color='#FDC700'
+                color='var(--primary)'
                 initialPosition={0.08}
                 crawlSpeed={200}
                 height={4}

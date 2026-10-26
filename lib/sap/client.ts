@@ -4,7 +4,7 @@ import https from 'https'
 import axios from 'axios'
 
 import { logger } from '@/lib/logger'
-import { REQUEST_TIMEOUT, SAP_API_PATH } from '@/constants/sap'
+import { REQUEST_TIMEOUT, SAP_API_PATH, SAP_LOGIN_RETRIES, SAP_LOGIN_RETRY_DELAY } from '@/constants/sap'
 import { SapAuthCookies, SapCredentials } from '@/types/sap'
 
 //* read at call time, so a changed .env needs no rebuild of this module
@@ -39,10 +39,37 @@ function readCookie(setCookie: string[] | undefined, name: string) {
   return line ? line.split(';')[0] : undefined
 }
 
-type SapLoginResult = { session: SapAuthCookies; sessionTimeout: number | null } | { error: string }
+//* isNoResponse means sap never answered, the choose-database page retries those itself
+type SapLoginResult = { session: SapAuthCookies; sessionTimeout: number | null } | { error: string; isNoResponse?: boolean }
+
+export type SapLoginOptions = { retries?: number }
+
+//* no answer from sap at all, a wrong password or a sap refusal has a response and never retries
+function isNoResponseError(err: any) {
+  return !err?.response && ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(err?.code)
+}
+
+//* tries the login up to `retries` more times when sap does not answer
+//? a timed out attempt may still have logged in on sap's side, that session idles out on its own
+async function postLogin(apiUrl: string, credentials: SapCredentials, retries: number) {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await axios.post(
+        `${apiUrl}/Login`,
+        { CompanyDB: credentials.companyDb, UserName: credentials.userName, Password: credentials.password },
+        { httpsAgent: getSapHttpsAgent(), timeout: REQUEST_TIMEOUT, headers: { 'Content-Type': 'application/json' } }
+      )
+    } catch (err: any) {
+      if (!isNoResponseError(err) || attempt > retries) throw err
+
+      logger.warn({ companyDb: credentials.companyDb, attempt, code: err?.code }, 'SAP login got no answer, trying again')
+      await new Promise((resolve) => setTimeout(resolve, SAP_LOGIN_RETRY_DELAY))
+    }
+  }
+}
 
 //* logs the shared service account into one company database
-export async function sapLogin(companyDb: string): Promise<SapLoginResult> {
+export async function sapLogin(companyDb: string, { retries = SAP_LOGIN_RETRIES }: SapLoginOptions = {}): Promise<SapLoginResult> {
   const config = getSapConfig()
 
   if (config.missing.length > 0) return { error: `Missing SAP settings: ${config.missing.join(', ')}` }
@@ -50,11 +77,7 @@ export async function sapLogin(companyDb: string): Promise<SapLoginResult> {
   const credentials: SapCredentials = { baseUrl: config.baseUrl, companyDb, userName: config.userName, password: config.password }
 
   try {
-    const response = await axios.post(
-      `${config.apiUrl}/Login`,
-      { CompanyDB: credentials.companyDb, UserName: credentials.userName, Password: credentials.password },
-      { httpsAgent: getSapHttpsAgent(), timeout: REQUEST_TIMEOUT, headers: { 'Content-Type': 'application/json' } }
-    )
+    const response = await postLogin(config.apiUrl, credentials, retries)
 
     const setCookie = response.headers['set-cookie']
     const b1session = readCookie(setCookie, 'B1SESSION')
@@ -78,7 +101,7 @@ export async function sapLogin(companyDb: string): Promise<SapLoginResult> {
 
     logger.error({ companyDb, code: err?.code, status: err?.response?.status }, `[SAP_LOGIN_ERROR]: ${message}`)
 
-    return { error: message || 'SAP login failed.' }
+    return { error: message || 'SAP login failed.', isNoResponse: isNoResponseError(err) }
   }
 }
 

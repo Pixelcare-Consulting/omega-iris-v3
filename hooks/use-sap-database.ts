@@ -5,6 +5,7 @@ import { useAction } from 'next-safe-action/hooks'
 
 import { selectSapDatabaseClient, verifySapDatabaseConnectionClient } from '@/actions/sap-database'
 import { DEFAULT_SIGNIN_REDIRECT } from '@/constants/routes'
+import { SAP_LOGIN_RETRIES, SAP_LOGIN_RETRY_DELAY } from '@/constants/sap'
 import { logger } from '@/lib/logger'
 import { delay } from '@/lib/utils'
 
@@ -40,6 +41,7 @@ function toSafeRedirect(redirectTo?: string | null) {
 export function useSapDatabase() {
   const [stage, setStage] = useState<SapDatabaseSwitchStage>(null)
   const [targetDbCode, setTargetDbCode] = useState<string | null>(null)
+  const [retryAttempt, setRetryAttempt] = useState<number | null>(null) //* the attempt being retried, null on the first try
   const { executeAsync: verifyConnection } = useAction(verifySapDatabaseConnectionClient)
   const { executeAsync: selectDatabase } = useAction(selectSapDatabaseClient)
 
@@ -48,10 +50,19 @@ export function useSapDatabase() {
     async (dbCode: string, redirectTo?: string | null): Promise<{ isSwitched: boolean; message?: string }> => {
       try {
         setTargetDbCode(dbCode)
+        setRetryAttempt(null)
         setStage('verifying')
 
-        const verified = await atLeast(verifyConnection({ dbCode }))
-        const verifyResult = verified?.data
+        let verifyResult = (await atLeast(verifyConnection({ dbCode })))?.data
+
+        //* sap did not answer, try again up to SAP_LOGIN_RETRIES more times and show which attempt is running
+        for (let attempt = 2; verifyResult?.error && verifyResult.isRetryable && attempt <= SAP_LOGIN_RETRIES + 1; attempt++) {
+          setRetryAttempt(attempt)
+          await delay(SAP_LOGIN_RETRY_DELAY)
+          verifyResult = (await atLeast(verifyConnection({ dbCode })))?.data
+        }
+
+        setRetryAttempt(null)
 
         if (!verifyResult || verifyResult.error) {
           setStage(null)
@@ -89,5 +100,5 @@ export function useSapDatabase() {
     [verifyConnection, selectDatabase]
   )
 
-  return { stage, targetDbCode, isSwitching: stage !== null, switchDatabase }
+  return { stage, targetDbCode, retryAttempt, isSwitching: stage !== null, switchDatabase }
 }
