@@ -116,7 +116,15 @@ import {
   ListChecks,
   FlaskConical,
   PackageX,
-  ChartColumn
+  ChartColumn,
+  Contact,
+  Store,
+  Factory,
+  Shapes,
+  Barcode,
+  Building,
+  Grid2x2,
+  FingerprintPattern
 } from 'lucide-react'
 
 export const Icons = {
@@ -236,7 +244,15 @@ export const Icons = {
   listChecks: ListChecks,
   flaskConical: FlaskConical,
   packageX: PackageX,
-  chartColumn: ChartColumn
+  chartColumn: ChartColumn,
+  contact: Contact,
+  store: Store,
+  factory: Factory,
+  shapes: Shapes,
+  barcode: Barcode,
+  building: Building,
+  grid: Grid2x2,
+  fingerprint: FingerprintPattern
 }
 
 export type Icon = LucideIcon

@@ -20,7 +20,7 @@ export const APP_CONFIG = {
   workflow: ['Receive', 'Scan', 'Quality Check', 'Store', 'Pick', 'Ship'],
   sidebar: {
     title: 'Iris',
-    subtitle: 'Inventory & WMS'
+    subtitle: 'Inventory · WMS · Barcoding'
   },
   signin: {
     subtitle: 'Enter your credentials to access your account',
@@ -59,12 +59,7 @@ export const MENU_GROUPS: MenuGroup[] = [
         items: [],
         subjects: PERMISSIONS_CODES.DASHBOARD,
         actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-      }
-    ]
-  },
-  {
-    title: 'Administration',
-    menu: [
+      },
       {
         title: 'Users',
         url: '/users',
@@ -80,44 +75,66 @@ export const MENU_GROUPS: MenuGroup[] = [
         items: [],
         subjects: PERMISSIONS_CODES.ROLES,
         actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-      }
-    ]
-  },
-  //TODO: add subjects and actions once each module has its permission, until then only the super user sees these
-  {
-    title: 'Master Data',
-    menu: [
-      { title: 'Sites', url: '/sites', icon: Icons.warehouse, items: [] },
-      { title: 'Project Categories', url: '/project-categories', icon: Icons.tags, items: [] },
-      { title: 'Projects', url: '/projects', icon: Icons.folderKanban, items: [] },
-      { title: 'Location Master', url: '/locations', icon: Icons.mapPin, items: [] },
-      { title: 'Pallet Master', url: '/pallets', icon: Icons.layers, items: [] },
-      { title: 'Container Master', url: '/containers', icon: Icons.container, items: [] },
-      { title: 'Item Master', url: '/item-master', icon: Icons.package, items: [] }
-    ]
-  },
-  {
-    title: 'Warehouse',
-    menu: [
-      { title: 'Inbound', url: '/inbound', icon: Icons.packageOpen, items: [] },
-      { title: 'Outbound', url: '/outbound', icon: Icons.truck, items: [] },
-      { title: 'Inventory', url: '/inventory', icon: Icons.boxes, items: [] },
-      { title: 'Inventory Movement', url: '/inventory-movements', icon: Icons.arrowLeftRight, items: [] },
-      { title: 'Cycle Count', url: '/cycle-counts', icon: Icons.listChecks, items: [] }
-    ]
-  },
-  {
-    title: 'Quality',
-    menu: [
+      },
+      //TODO: add subjects and actions once each module has its permission, until then only the super user sees these
+      {
+        title: 'BP Master',
+        url: '',
+        icon: Icons.handshake,
+        items: [
+          { title: 'Customers', url: '/customers', icon: Icons.contact, items: [] },
+          { title: 'Vendors', url: '/vendors', icon: Icons.store, items: [] }
+        ]
+      },
+      {
+        title: 'Products',
+        url: '',
+        icon: Icons.package,
+        items: [
+          { title: 'Manufacturer', url: '/manufacturers', icon: Icons.factory, items: [] },
+          { title: 'Commodity', url: '/commodities', icon: Icons.shapes, items: [] },
+          { title: 'Item Master', url: '/item-master', icon: Icons.barcode, items: [] }
+        ]
+      },
+      {
+        title: 'Warehouse',
+        url: '',
+        icon: Icons.warehouse,
+        items: [
+          { title: 'Sites', url: '/sites', icon: Icons.building, items: [] },
+          { title: 'Zones', url: '/zones', icon: Icons.grid, items: [] },
+          { title: 'Locations', url: '/locations', icon: Icons.mapPin, items: [] }
+        ]
+      },
+      {
+        title: 'Inventory',
+        url: '',
+        icon: Icons.boxes,
+        items: [
+          { title: 'Pallets', url: '/pallets', icon: Icons.layers, items: [] },
+          { title: 'Containers', url: '/containers', icon: Icons.container, items: [] },
+          { title: 'MPN / Unique ID', url: '/mpn', icon: Icons.fingerprint, items: [] },
+          { title: 'Inbound', url: '/inbound', icon: Icons.packageOpen, items: [] },
+          { title: 'Outbound', url: '/outbound', icon: Icons.truck, items: [] },
+          { title: 'Cycle Count', url: '/cycle-counts', icon: Icons.listChecks, items: [] },
+          { title: 'Movement', url: '/inventory-movements', icon: Icons.arrowLeftRight, items: [] }
+        ]
+      },
+      {
+        title: 'Project',
+        url: '',
+        icon: Icons.folderKanban,
+        items: [
+          { title: 'Category', url: '/project-categories', icon: Icons.tags, items: [] },
+          { title: 'Customer Project', url: '/customer-projects', icon: Icons.folderOpen, items: [] }
+        ]
+      },
+      { title: 'Work Order', url: '/work-orders', icon: Icons.clipboadList, items: [] },
       { title: 'QC / Testing', url: '/qc-testing', icon: Icons.flaskConical, items: [] },
-      { title: 'NCOR / RMA', url: '/ncor-rma', icon: Icons.packageX, items: [] }
-    ]
-  },
-  {
-    title: 'Reports',
-    menu: [
+      { title: 'NCOR / RMA', url: '/ncor-rma', icon: Icons.packageX, items: [] },
       { title: 'Reports', url: '/reports', icon: Icons.chartColumn, items: [] },
-      { title: 'Audit Logs', url: '/audit-logs', icon: Icons.fileClock, items: [] }
+      { title: 'Audit Logs', url: '/audit-logs', icon: Icons.fileClock, items: [] },
+      { title: 'Settings', url: '/settings', icon: Icons.settings, items: [] }
     ]
   }
 ]
