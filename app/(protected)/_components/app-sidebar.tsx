@@ -31,17 +31,15 @@ export default function AppSidebar({ ...props }: React.ComponentProps<typeof Sid
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size='lg' className='h-12 group-data-[collapsible=icon]:justify-center' asChild>
+            <SidebarMenuButton size='lg' className='h-14 group-data-[collapsible=icon]:justify-center' asChild>
               <Link href=''>
-                {/* white tile, cropped to the dot mark on the left of the logo */}
-                <div className='flex size-9 shrink-0 items-center justify-center rounded-lg bg-white transition-[width,height] duration-200 ease-linear group-data-[collapsible=icon]:size-8'>
-                  <div className='h-6 w-5.5 overflow-hidden'>
-                    <img src='/images/logo.png' alt={APP_CONFIG.fullName} className='h-full w-auto max-w-none' />
-                  </div>
+                {/* omega mark on a white tile, cut from logo.png */}
+                <div className='flex size-11 shrink-0 items-center justify-center rounded-lg bg-white p-2 transition-[width,height] duration-200 ease-linear group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:p-1.5'>
+                  <img src='/images/logo-mark.png' alt={APP_CONFIG.fullName} className='h-full w-auto object-contain' />
                 </div>
                 <div className='flex min-w-0 flex-col overflow-hidden leading-tight transition-[width,opacity] duration-200 ease-linear group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:opacity-0'>
-                  <span className='truncate text-sm font-semibold'>{APP_CONFIG.sidebar.title}</span>
-                  <span className='truncate text-xs opacity-65'>{APP_CONFIG.sidebar.subtitle}</span>
+                  <span className='text-primary truncate text-2xl leading-none font-bold tracking-tight'>{APP_CONFIG.sidebar.title}</span>
+                  <span className='mt-0.5 truncate text-xs opacity-65'>{APP_CONFIG.sidebar.subtitle}</span>
                 </div>
               </Link>
             </SidebarMenuButton>

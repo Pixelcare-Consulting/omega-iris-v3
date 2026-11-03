@@ -147,15 +147,15 @@ There is no test setup in this repo - verify with `pnpm lint` and `pnpm build`.
 
 ## Shadcn Preset
 
-`--preset b1YmqvjQ8`
+`--preset b4gMYn6rw`
 
 ## Shadcn Decode Preset
 
-`pnpm dlx shadcn@latest preset decode b1YmqvjQ8`
+`pnpm dlx shadcn@latest preset decode b4gMYn6rw`
 
 ## You can apply only the theme or fonts from a preset without reinstalling UI components
 
-`pnpm dlx shadcn@latest apply b1YmqvjQ8 --only theme`
+`pnpm dlx shadcn@latest apply b4gMYn6rw --only theme`
 
 ## Modify the theme colors
 

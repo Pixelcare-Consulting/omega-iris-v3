@@ -127,7 +127,7 @@ function SidebarProvider({
             ...style
           } as React.CSSProperties
         }
-        className={cn('group/sidebar-wrapper flex min-h-svh w-full has-data-[variant=inset]:bg-blue-950', className)}
+        className={cn('group/sidebar-wrapper has-data-[variant=inset]:bg-primary-black flex min-h-svh w-full', className)}
         {...props}
       >
         {children}
@@ -152,17 +152,17 @@ function Sidebar({
   const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
 
   if (collapsible === 'none') {
-    //* removed bg-sidebar -> added bg-blue-950
+    //* removed bg-sidebar -> added bg-primary-black
     //* removed text-sidebar-foreground -> added text-white
     return (
-      <div data-slot='sidebar' className={cn('flex h-full w-(--sidebar-width) flex-col bg-blue-950 text-white', className)} {...props}>
+      <div data-slot='sidebar' className={cn('bg-primary-black flex h-full w-(--sidebar-width) flex-col text-white', className)} {...props}>
         {children}
       </div>
     )
   }
 
   if (isMobile) {
-    //* removed bg-sidebar -> added bg-blue-950
+    //* removed bg-sidebar -> added bg-primary-black
     //* removed text-sidebar-foreground -> added text-white
     return (
       <Sheet open={openMobile} onOpenChange={setOpenMobile} {...props}>
@@ -171,7 +171,7 @@ function Sidebar({
           data-sidebar='sidebar'
           data-slot='sidebar'
           data-mobile='true'
-          className='w-(--sidebar-width) bg-blue-950 p-0 text-white [&>button]:hidden'
+          className='bg-primary-black w-(--sidebar-width) p-0 text-white [&>button]:hidden'
           style={
             {
               '--sidebar-width': SIDEBAR_WIDTH_MOBILE
@@ -227,9 +227,9 @@ function Sidebar({
         <div
           data-sidebar='sidebar'
           data-slot='sidebar-inner'
-          //* removed bg-sidebar -> added bg-blue-950
+          //* removed bg-sidebar -> added bg-primary-black
           //* removed text-sidebar-foreground -> added text-white
-          className='group-data-[variant=floating]:ring-sidebar-border flex size-full flex-col bg-blue-950 text-white group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1'
+          className='group-data-[variant=floating]:ring-sidebar-border bg-primary-black flex size-full flex-col text-white group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:shadow-sm group-data-[variant=floating]:ring-1'
         >
           {children}
         </div>
@@ -264,7 +264,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
   const { toggleSidebar } = useSidebar()
 
   return (
-    //* removed bg-sidebar -> added bg-blue-950
+    //* removed bg-sidebar -> added bg-primary-black
     <button
       data-sidebar='rail'
       data-slot='sidebar-rail'
@@ -276,7 +276,7 @@ function SidebarRail({ className, ...props }: React.ComponentProps<'button'>) {
         'hover:after:bg-sidebar-border absolute inset-y-0 z-20 hidden w-4 transition-all ease-linear group-data-[side=left]:-right-4 group-data-[side=right]:left-0 after:absolute after:inset-y-0 after:start-1/2 after:w-[2px] sm:flex ltr:-translate-x-1/2 rtl:-translate-x-1/2',
         'in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize',
         '[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize',
-        'group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full hover:group-data-[collapsible=offcanvas]:bg-blue-950',
+        'hover:group-data-[collapsible=offcanvas]:bg-primary-black group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full',
         '[[data-side=left][data-collapsible=offcanvas]_&]:-right-2',
         '[[data-side=right][data-collapsible=offcanvas]_&]:-left-2',
         className
@@ -476,7 +476,7 @@ function SidebarMenuAction({
   const Comp = asChild ? Slot.Root : 'button'
 
   return (
-    //* removed bg-sidebar -> added bg-blue-950
+    //* removed bg-sidebar -> added bg-primary-black
     //* removed text-sidebar-foreground -> added text-white
     //* changed size-4 to size-5
     <Comp

@@ -47,23 +47,5 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     parentCode: null,
     isSystem: true,
     allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
-  },
-  {
-    code: PERMISSIONS_CODES['BUSINESS_PARTNERS'],
-    name: 'Business Partners',
-    description: 'SAP Business Partners Module',
-    isParent: false,
-    parentCode: null,
-    isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'export']
-  },
-  {
-    code: PERMISSIONS_CODES['ITEMS'],
-    name: 'Items',
-    description: 'SAP Items Module',
-    isParent: false,
-    parentCode: null,
-    isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'export']
   }
 ]

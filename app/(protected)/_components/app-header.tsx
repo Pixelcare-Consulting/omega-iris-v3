@@ -16,7 +16,8 @@ export default function AppHeader({ user, dbCode }: { user: AuthSessionUser | nu
   const { toggleFullscreen } = useFullscreen()
 
   return (
-    <header className='flex h-16 shrink-0 items-center gap-2 border-b bg-white px-4'>
+    //* dark class flips the theme tokens for the header only, portaled menus stay light
+    <header className='dark bg-primary-black text-foreground flex h-16 shrink-0 items-center gap-2 border-b px-4'>
       <TooltipWrapper label='Toggle Sidebar (Ctrl+B)'>
         <SidebarTrigger className='-ml-1' />
       </TooltipWrapper>

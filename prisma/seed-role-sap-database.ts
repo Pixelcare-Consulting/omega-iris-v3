@@ -10,6 +10,7 @@ import { PrismaClient } from '@/prisma/generated/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
+import logger from '@/lib/logger'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const db = new PrismaClient({ adapter })
@@ -17,7 +18,7 @@ const db = new PrismaClient({ adapter })
 const DB_CODES = process.argv.slice(2)
 
 async function main() {
-  console.log('Generating Role SAP Databases...')
+  logger.info('Generating Role SAP Databases...')
 
   const [roles, databases] = await Promise.all([
     //* super user already gets every database, so it needs no links
@@ -31,14 +32,14 @@ async function main() {
   //* codes with no sap database row are skipped
   const unknown = DB_CODES.filter((dbCode) => !databases.some((database) => database.dbCode === dbCode))
 
-  if (unknown.length > 0) console.log(`Skipped unknown SAP database(s): ${unknown.join(', ')}`)
+  if (unknown.length > 0) logger.info(`Skipped unknown SAP database(s): ${unknown.join(', ')}`)
 
   const { count } = await db.roleSapDatabase.createMany({
     data: roles.flatMap((role) => databases.map((database) => ({ roleCode: role.code, sapDatabaseCode: database.dbCode }))),
     skipDuplicates: true
   })
 
-  console.log(
+  logger.info(
     `Role SAP Databases seeded successfully! (${count} links, ${roles.length} roles without a database x ${databases.map((database) => database.dbCode).join(', ') || 'none'})`
   )
 }

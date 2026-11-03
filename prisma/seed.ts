@@ -58,7 +58,7 @@ async function main() {
         fname: 'System',
         lname: 'Admin',
         name: 'System Admin',
-        email: 'admin@test.com',
+        email: 'admin@omega.com',
         username: 'admin',
         roleCode: 1,
         password: 'admin123',

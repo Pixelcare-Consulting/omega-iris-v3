@@ -2,23 +2,34 @@ import { Icon, Icons } from '@/components/icons'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from './permission'
 
 export const APP_CONFIG = {
-  name: 'PXC Portal',
-  fullName: 'Pixelcare Consulting Corporation Portal',
-  description: 'A internal portal for Pixelcare Consulting.',
+  name: 'Iris',
+  fullName: 'Omega Iris Inventory & Warehouse Management System',
+  description: 'Inventory, warehouse, and barcoding system for Omega.',
   creator: 'PXC Dev Team',
-  features: ['Lead Management', 'Quotations', 'Reports', 'User Management', 'Role-Based Access', 'Multi-Tenant Access'],
-  tagLine: 'WE DEVELOP, WE CARE',
-  company: 'Pixelcare Consulting Corporation',
-  offices: ['Singapore', 'Malaysia', 'Philippines'],
+  features: [
+    'Inventory Management',
+    'Warehouse Management',
+    'Barcode Scanning',
+    'Quality Control',
+    'Stock Monitoring',
+    'Work Orders',
+    'Reports & Analytics'
+  ],
+  tagLine: 'CONTROL. INSIGHT. EFFICIENCY.',
+  company: 'Omega',
+  workflow: ['Receive', 'Scan', 'Quality Check', 'Store', 'Pick', 'Ship'],
   sidebar: {
-    title: 'PXC Portal',
-    subtitle: 'Pixelcare Consulting Corp.'
+    title: 'Iris',
+    subtitle: 'Inventory & WMS'
   },
   signin: {
-    eyebrow: 'PXC PORTAL · INTERNAL',
-    title: 'Built for the people',
-    titleHighlight: 'behind the projects.',
-    description: "Pixelcare's internal workspace. The tools and records the team needs to keep daily work moving, all in one place."
+    subtitle: 'Enter your credentials to access your account',
+    logoSubtitle: 'Inventory Management System',
+    eyebrow: 'OMEGA IRIS · INVENTORY & WMS',
+    title: 'Your inventory,',
+    titleHighlight: 'under control.',
+    description:
+      'Iris brings inventory, warehouse operations, and barcode scanning into one system. Receive, put away, pick, and ship with full stock visibility.'
   }
 } as const
 
@@ -40,7 +51,6 @@ export type MenuGroup = {
 
 export const MENU_GROUPS: MenuGroup[] = [
   {
-    title: 'Modules',
     menu: [
       {
         title: 'Dashboard',
@@ -49,7 +59,12 @@ export const MENU_GROUPS: MenuGroup[] = [
         items: [],
         subjects: PERMISSIONS_CODES.DASHBOARD,
         actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-      },
+      }
+    ]
+  },
+  {
+    title: 'Administration',
+    menu: [
       {
         title: 'Users',
         url: '/users',
@@ -65,23 +80,44 @@ export const MENU_GROUPS: MenuGroup[] = [
         items: [],
         subjects: PERMISSIONS_CODES.ROLES,
         actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-      },
-      {
-        title: 'Business Partners',
-        url: '/business-partners',
-        icon: Icons.handshake,
-        items: [],
-        subjects: PERMISSIONS_CODES.BUSINESS_PARTNERS,
-        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-      },
-      {
-        title: 'Items',
-        url: '/items',
-        icon: Icons.package,
-        items: [],
-        subjects: PERMISSIONS_CODES.ITEMS,
-        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
       }
+    ]
+  },
+  //TODO: add subjects and actions once each module has its permission, until then only the super user sees these
+  {
+    title: 'Master Data',
+    menu: [
+      { title: 'Sites', url: '/sites', icon: Icons.warehouse, items: [] },
+      { title: 'Project Categories', url: '/project-categories', icon: Icons.tags, items: [] },
+      { title: 'Projects', url: '/projects', icon: Icons.folderKanban, items: [] },
+      { title: 'Location Master', url: '/locations', icon: Icons.mapPin, items: [] },
+      { title: 'Pallet Master', url: '/pallets', icon: Icons.layers, items: [] },
+      { title: 'Container Master', url: '/containers', icon: Icons.container, items: [] },
+      { title: 'Item Master', url: '/item-master', icon: Icons.package, items: [] }
+    ]
+  },
+  {
+    title: 'Warehouse',
+    menu: [
+      { title: 'Inbound', url: '/inbound', icon: Icons.packageOpen, items: [] },
+      { title: 'Outbound', url: '/outbound', icon: Icons.truck, items: [] },
+      { title: 'Inventory', url: '/inventory', icon: Icons.boxes, items: [] },
+      { title: 'Inventory Movement', url: '/inventory-movements', icon: Icons.arrowLeftRight, items: [] },
+      { title: 'Cycle Count', url: '/cycle-counts', icon: Icons.listChecks, items: [] }
+    ]
+  },
+  {
+    title: 'Quality',
+    menu: [
+      { title: 'QC / Testing', url: '/qc-testing', icon: Icons.flaskConical, items: [] },
+      { title: 'NCOR / RMA', url: '/ncor-rma', icon: Icons.packageX, items: [] }
+    ]
+  },
+  {
+    title: 'Reports',
+    menu: [
+      { title: 'Reports', url: '/reports', icon: Icons.chartColumn, items: [] },
+      { title: 'Audit Logs', url: '/audit-logs', icon: Icons.fileClock, items: [] }
     ]
   }
 ]
