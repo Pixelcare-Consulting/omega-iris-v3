@@ -11,9 +11,8 @@ import { codeParamsSchema } from '@/schema/common'
 import { logger } from '@/lib/logger'
 import { processZoneFormSchema } from '@/schema/process-zone'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
-import { isUniqueConstraintError, toDuplicateMessage } from '@/lib/duplicate'
+import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
-import { capitalize } from 'radash'
 
 export async function getProcessZones(dbCode: string | null) {
   if (!dbCode) return []
@@ -113,13 +112,15 @@ export const upsertProcessZone = action
 
     try {
       //* deleted rows count too, the unique keys include them
-      const [existingCode, existingName] = await Promise.all([
+      const [existingCode, sameNames] = await Promise.all([
         //* code is locked after create, so an edit skips it
         isCreate ? db.processZone.findFirst({ where: { dbCode, code: { equals: code, mode: 'insensitive' } } }) : null,
-        db.processZone.findFirst({
+        db.processZone.findMany({
           where: { dbCode, name: { equals: data.name, mode: 'insensitive' }, ...(id && { NOT: { id } }) }
         })
       ])
+
+      const existingName = findSameText(sameNames, (row) => row.name, data.name)
 
       const duplicates: DuplicateFields = []
 
@@ -128,8 +129,8 @@ export const upsertProcessZone = action
 
       if (duplicates.length > 0) {
         const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
-        const message = duplicates.map((d) => d.name).join(', ')
-        return { status: 401, error: true, message: `${capitalize(message)} already exists!`, action: actionTag, paths }
+        const message = toFieldListMessage(duplicates, 'already exists!', 'already exist!')
+        return { status: 401, error: true, message, action: actionTag, paths }
       }
 
       //* update process zone

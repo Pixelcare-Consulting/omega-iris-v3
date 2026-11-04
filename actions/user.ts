@@ -1,7 +1,7 @@
 'use server'
 
 import { generateId } from 'better-auth'
-import { capitalize, isArray } from 'radash'
+import { isArray } from 'radash'
 import { hashPassword, verifyPassword } from 'better-auth/crypto'
 import { action, authenticationMiddleware } from '@/lib/safe-action'
 import { z } from 'zod'
@@ -20,6 +20,7 @@ import { auth } from '@/lib/auth'
 import { buildAbilityFor } from '@/lib/rbac'
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 import { toFullName } from '@/lib/user'
+import { toFieldListMessage } from '@/lib/duplicate'
 
 const COMMON_USER_INCLUDE = {
   role: true
@@ -201,8 +202,8 @@ export const upsertUser = action
 
       if (duplicates.length > 0) {
         const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
-        const message = duplicates.map((d) => d.name).join(', ')
-        return { status: 401, error: true, message: `${capitalize(message)} already exists!`, action: actionTag, paths }
+        const message = toFieldListMessage(duplicates, 'already exists!', 'already exist!')
+        return { status: 401, error: true, message, action: actionTag, paths }
       }
 
       //* update user
@@ -335,8 +336,8 @@ export const updateBasicInfo = action
 
       if (duplicates.length > 0) {
         const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
-        const message = duplicates.map((d) => d.name).join(', ')
-        return { status: 401, error: true, message: `${capitalize(message)} already exists!`, action: actionTag, paths }
+        const message = toFieldListMessage(duplicates, 'already exists!', 'already exist!')
+        return { status: 401, error: true, message, action: actionTag, paths }
       }
 
       //* update user
