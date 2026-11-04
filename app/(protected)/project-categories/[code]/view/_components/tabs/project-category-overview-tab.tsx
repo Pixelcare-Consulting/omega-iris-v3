@@ -23,26 +23,35 @@ export default function ProjectCategoryOverviewTab({ projectCategory }: ProjectC
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Code' value={projectCategory.code}>
               <Copy value={projectCategory.code} />
             </ReadOnlyField>
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Name' value={projectCategory.name} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Active' value={projectCategory.isActive ? 'Yes' : 'No'} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='System' description='System generated, view only' value={projectCategory.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>
             <ReadOnlyField title='Description' value={projectCategory.description} />
+          </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description="Project category's setting" />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Active'
+              description='Inactive categories are hidden from selection'
+              value={projectCategory.isActive ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='System' description='System generated, view only' value={projectCategory.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>

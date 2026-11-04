@@ -60,7 +60,7 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
 
           <Column>
             <Separator className='mt-3 mb-4' />
-            <ReadOnlyFieldHeader title='Setting' description='User configured settings' />
+            <ReadOnlyFieldHeader title='Settings' description="User's setting" />
           </Column>
 
           <Column md={6} lg={3}>

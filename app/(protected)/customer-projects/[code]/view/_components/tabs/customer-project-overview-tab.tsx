@@ -24,17 +24,17 @@ export default function CustomerProjectOverviewTab({ customerProject }: Customer
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Code' value={customerProject.code}>
               <Copy value={customerProject.code} />
             </ReadOnlyField>
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Name' value={customerProject.name} />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField
               title='Category'
               value={
@@ -50,16 +50,25 @@ export default function CustomerProjectOverviewTab({ customerProject }: Customer
             />
           </Column>
 
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Active' value={customerProject.isActive ? 'Yes' : 'No'} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='System' description='System generated, view only' value={customerProject.isSystem ? 'Yes' : 'No'} />
+          <Column>
+            <ReadOnlyField title='Description' value={customerProject.description} />
           </Column>
 
           <Column>
-            <ReadOnlyField title='Description' value={customerProject.description} />
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description="Customer project's setting" />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Active'
+              description='Inactive projects are hidden from selection'
+              value={customerProject.isActive ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='System' description='System generated, view only' value={customerProject.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>

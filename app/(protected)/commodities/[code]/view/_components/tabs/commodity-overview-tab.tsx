@@ -23,21 +23,30 @@ export default function CommodityOverviewTab({ commodity }: CommodityOverviewTab
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Code' value={commodity.code}>
               <Copy value={commodity.code} />
             </ReadOnlyField>
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Name' value={commodity.name} />
           </Column>
 
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Active' value={commodity.isActive ? 'Yes' : 'No'} />
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description="Commodity's setting" />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Active'
+              description='Inactive commodities are hidden from selection'
+              value={commodity.isActive ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
             <ReadOnlyField title='System' description='System generated, view only' value={commodity.isSystem ? 'Yes' : 'No'} />
           </Column>
 

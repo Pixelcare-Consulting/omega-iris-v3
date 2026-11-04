@@ -23,21 +23,30 @@ export default function ManufacturerOverviewTab({ manufacturer }: ManufacturerOv
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Code' value={manufacturer.code}>
               <Copy value={manufacturer.code} />
             </ReadOnlyField>
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Name' value={manufacturer.name} />
           </Column>
 
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Active' value={manufacturer.isActive ? 'Yes' : 'No'} />
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description="Manufacturer's setting" />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Active'
+              description='Inactive manufacturers are hidden from selection'
+              value={manufacturer.isActive ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
             <ReadOnlyField title='System' description='System generated, view only' value={manufacturer.isSystem ? 'Yes' : 'No'} />
           </Column>
 

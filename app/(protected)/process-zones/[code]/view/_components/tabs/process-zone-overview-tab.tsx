@@ -23,30 +23,43 @@ export default function ProcessZoneOverviewTab({ processZone }: ProcessZoneOverv
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Code' value={processZone.code}>
               <Copy value={processZone.code} />
             </ReadOnlyField>
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Name' value={processZone.name} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Active' value={processZone.isActive ? 'Yes' : 'No'} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Pallet Eligible' value={processZone.isPalletEligible ? 'Yes' : 'No'} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='System' description='System generated, view only' value={processZone.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>
             <ReadOnlyField title='Description' value={processZone.description} />
+          </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description="Process zone's setting" />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Active'
+              description='Inactive process zones are hidden from selection'
+              value={processZone.isActive ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Pallet Eligible'
+              description='Can pallets be placed in this process zone?'
+              value={processZone.isPalletEligible ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='System' description='System generated, view only' value={processZone.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>

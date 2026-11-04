@@ -23,26 +23,31 @@ export default function SiteOverviewTab({ site }: SiteOverviewTabProps) {
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Code' value={site.code}>
               <Copy value={site.code} />
             </ReadOnlyField>
           </Column>
 
-          <Column md={6} lg={4}>
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Name' value={site.name} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='Active' value={site.isActive ? 'Yes' : 'No'} />
-          </Column>
-
-          <Column md={6} lg={4}>
-            <ReadOnlyField title='System' description='System generated, view only' value={site.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>
             <ReadOnlyField title='Description' value={site.description} />
+          </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description="Site's setting" />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Active' description='Inactive sites are hidden from selection' value={site.isActive ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='System' description='System generated, view only' value={site.isSystem ? 'Yes' : 'No'} />
           </Column>
 
           <Column>
