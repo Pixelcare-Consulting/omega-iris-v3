@@ -17,13 +17,31 @@ import { usePathname } from 'next/navigation'
 
 type BreadcrumbItemType = { label: string; href?: string }
 
+//* a bad escape is shown as typed
+function decodeSegment(segment: string) {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
+
+//* route words get prettified, record codes like "LM317T/NOPB-R" stay as typed
+function toBreadcrumbLabel(segment: string) {
+  const label = decodeSegment(segment)
+
+  if (!/^[a-z-]+$/.test(label)) return label
+
+  return label.charAt(0).toUpperCase() + label.slice(1).replace(/-/g, ' ') // "user-profile" → "User profile"
+}
+
 //* convert pathname to breadcrumbs items
 function buildBreadcrumbs(pathname: string): BreadcrumbItemType[] {
   const segments = pathname.split('/').filter(Boolean)
 
   return segments.map((segment, index) => ({
-    label: segment.charAt(0).toUpperCase() + segment.slice(1).replace(/-/g, ' '), // "user-profile" → "User profile"
-    href: '/' + segments.slice(0, index + 1).join('/')
+    label: toBreadcrumbLabel(segment),
+    href: '/' + segments.slice(0, index + 1).join('/') //* the href stays encoded
   }))
 }
 
