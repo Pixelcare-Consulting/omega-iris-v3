@@ -101,8 +101,22 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.warehouse,
         items: [
-          { title: 'Sites', url: '/sites', icon: Icons.building, items: [] },
-          { title: 'Zones', url: '/zones', icon: Icons.grid, items: [] },
+          {
+            title: 'Sites',
+            url: '/sites',
+            icon: Icons.building,
+            items: [],
+            subjects: PERMISSIONS_CODES.SITES,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Process Zones',
+            url: '/process-zones',
+            icon: Icons.grid,
+            items: [],
+            subjects: PERMISSIONS_CODES.PROCESS_ZONES,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
           { title: 'Locations', url: '/locations', icon: Icons.mapPin, items: [] }
         ]
       },
@@ -125,8 +139,22 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.folderKanban,
         items: [
-          { title: 'Category', url: '/project-categories', icon: Icons.tags, items: [] },
-          { title: 'Customer Project', url: '/customer-projects', icon: Icons.folderOpen, items: [] }
+          {
+            title: 'Category',
+            url: '/project-categories',
+            icon: Icons.tags,
+            items: [],
+            subjects: PERMISSIONS_CODES.PROJECT_CATEGORIES,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Customer Project',
+            url: '/customer-projects',
+            icon: Icons.folderOpen,
+            items: [],
+            subjects: PERMISSIONS_CODES.CUSTOMER_PROJECTS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          }
         ]
       },
       { title: 'Work Order', url: '/work-orders', icon: Icons.clipboadList, items: [] },

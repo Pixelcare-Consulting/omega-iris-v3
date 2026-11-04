@@ -223,6 +223,119 @@ model FileAttachment {
     @@index([uploadedBy])
 }
 
+model Site {
+    id          String  @id @default(cuid())
+    dbCode      String
+    code        String
+    name        String
+    description String?
+    isActive    Boolean @default(true)
+    isSystem    Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model ProcessZone {
+    id               String  @id @default(cuid())
+    dbCode           String
+    code             String
+    name             String
+    description      String?
+    isPalletEligible Boolean @default(false)
+    isActive         Boolean @default(true)
+    isSystem         Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model ProjectCategory {
+    id          String  @id @default(cuid())
+    dbCode      String
+    code        String
+    name        String
+    description String?
+    isActive    Boolean @default(true)
+    isSystem    Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    customerProjects CustomerProject[]
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model CustomerProject {
+    id           String  @id @default(cuid())
+    dbCode       String
+    code         String
+    name         String
+    description  String?
+    categoryCode String?
+    isActive     Boolean @default(true)
+    isSystem     Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    category ProjectCategory? @relation(fields: [dbCode, categoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([categoryCode])
+    @@index([deletedAt])
+}
+
+model Manufacturer {
+    id     String @id @default(cuid())
+    dbCode String
+    code   String
+    name   String
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+}
+
 //* multi-tenant sap database switcher
 //* for the time being single user will access the DB and just stored the session seprately
 //* And just query / use session based on the selected SAP DB (db code)

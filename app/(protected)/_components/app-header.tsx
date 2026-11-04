@@ -11,8 +11,11 @@ import { useFullscreen } from '@/hooks/use-fullscreen'
 import UserButton from './user-button'
 import AppBreadcrumbs from './app-breadcrumbs'
 import { AuthSessionUser } from '@/types/auth'
+import { SapDatabase } from '@/prisma/generated/client'
 
-export default function AppHeader({ user, dbCode }: { user: AuthSessionUser | null; dbCode: string | null }) {
+type AppHeaderProps = { user: AuthSessionUser | null; dbCode: string | null; sapDatabases: SapDatabase[] }
+
+export default function AppHeader({ user, dbCode, sapDatabases }: AppHeaderProps) {
   const { toggleFullscreen } = useFullscreen()
 
   return (
@@ -35,7 +38,7 @@ export default function AppHeader({ user, dbCode }: { user: AuthSessionUser | nu
 
         <KeyboardShortcuts />
 
-        <SapDatabaseSwitcher dbCode={dbCode} />
+        <SapDatabaseSwitcher dbCode={dbCode} sapDatabases={sapDatabases} />
 
         <UserButton user={user} />
       </div>

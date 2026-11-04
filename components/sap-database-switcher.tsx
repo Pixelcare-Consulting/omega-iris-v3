@@ -3,7 +3,6 @@
 import { toast } from 'sonner'
 
 import { useSapDatabase } from '@/hooks/use-sap-database'
-import { useSapDatabases } from '@/hooks/safe-actions/sap-database'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -14,11 +13,14 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Icons } from './icons'
+import { SapDatabase } from '@/prisma/generated/client'
 import SapDatabaseSwitchingOverlay from './sap-database-switching-overlay'
 
-export default function SapDatabaseSwitcher({ dbCode }: { dbCode: string | null }) {
+type SapDatabaseSwitcherProps = { dbCode: string | null; sapDatabases: SapDatabase[] }
+
+//* the list comes from the layout, so the label has the name on first render
+export default function SapDatabaseSwitcher({ dbCode, sapDatabases }: SapDatabaseSwitcherProps) {
   const { stage, targetDbCode, retryAttempt, isSwitching, switchDatabase } = useSapDatabase()
-  const { data: sapDatabases, isLoading } = useSapDatabases()
 
   const current = sapDatabases.find((sapDb) => sapDb.dbCode === dbCode)
   const target = sapDatabases.find((sapDb) => sapDb.dbCode === targetDbCode)
@@ -40,7 +42,7 @@ export default function SapDatabaseSwitcher({ dbCode }: { dbCode: string | null 
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant='ghost' size='sm' disabled={isSwitching || isLoading}>
+          <Button variant='ghost' size='sm' disabled={isSwitching}>
             <Icons.database className='text-muted-foreground size-4' />
             <span className='max-w-40 truncate text-sm font-medium'>{current?.name ?? dbCode}</span>
             <Icons.upDown className='text-muted-foreground size-3.5' />

@@ -1,3 +1,5 @@
+import { isProd } from './common'
+
 export const REQUEST_TIMEOUT = 30_000 //* 30 seconds
 export const SESSION_TIMEOUT = 30 * 60 * 1000 //* fallback when sap does not report one
 export const EXPIRY_BUFFER = 60 * 1000 //* treat a session as expired a minute early
@@ -15,8 +17,8 @@ export const SAP_DEFAULT_PAGE_SIZE = 500
 export const SAP_NO_PAGINATION = 'odata.maxpagesize=0'
 
 export const DEFAULT_SAP_DATABASES = [
-  { dbCode: 'OMEGA_P02', name: 'Omega Global Technologies Inc. ', order: 1 },
-  { dbCode: 'OMEGA_P02_TESTING', name: 'US (Testing)', order: 2 },
-  { dbCode: 'OMEGA_PHIL', name: 'Omega GTI Asia Inc.', order: 3 },
-  { dbCode: 'OMEGA_PHIL_TESTING', name: 'PH (Testing)', order: 4 }
+  { dbCode: 'OMEGA_P02', name: 'Omega Global Technologies Inc. ', order: 1, isActive: isProd },
+  { dbCode: 'OMEGA_P02_TESTING', name: 'US (Testing)', order: 2, isActive: !isProd },
+  { dbCode: 'OMEGA_PHIL', name: 'Omega GTI Asia Inc.', order: 3, isActive: isProd },
+  { dbCode: 'OMEGA_PHIL_TESTING', name: 'PH (Testing)', order: 4, isActive: !isProd }
 ]

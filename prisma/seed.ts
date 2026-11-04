@@ -7,6 +7,10 @@ import { betterAuth } from 'better-auth'
 import { logger } from '@/lib/logger'
 import { DEFAULT_PERMISSIONS } from '@/constants/permission'
 import { DEFAULT_ROLES } from '@/constants/role'
+import { DEFAULT_SAP_DATABASES } from '@/constants/sap'
+import { DEFAULT_PROJECT_CATEGORIES } from '@/constants/project-category'
+import { DEFAULT_SITES } from '@/constants/site'
+import { DEFAULT_PROCESS_ZONES } from '@/constants/process-zones'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const db = new PrismaClient({ adapter })
@@ -34,6 +38,8 @@ const auth = betterAuth({
 
 async function main() {
   try {
+    const activeSapDatabase = DEFAULT_SAP_DATABASES.filter((sapDb) => sapDb.isActive)
+
     logger.info('Database seeding...')
 
     //* reset code sequence
@@ -65,6 +71,22 @@ async function main() {
         isSystem: true,
         isDefaultPasswordChanged: true
       }
+    })
+
+    //* one copy of each default per sap database, flagged system so they stay view only
+    logger.info('Create default project categories...')
+    await db.projectCategory.createMany({
+      data: activeSapDatabase.flatMap(({ dbCode }) => DEFAULT_PROJECT_CATEGORIES.map((row) => ({ ...row, dbCode, isSystem: true })))
+    })
+
+    logger.info('Create default sites...')
+    await db.site.createMany({
+      data: activeSapDatabase.flatMap(({ dbCode }) => DEFAULT_SITES.map((row) => ({ ...row, dbCode, isSystem: true })))
+    })
+
+    logger.info('Create default process zones...')
+    await db.processZone.createMany({
+      data: activeSapDatabase.flatMap(({ dbCode }) => DEFAULT_PROCESS_ZONES.map((row) => ({ ...row, dbCode, isSystem: true })))
     })
 
     logger.info('Database seeded successfully!')
