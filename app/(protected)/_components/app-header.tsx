@@ -11,12 +11,16 @@ import { useFullscreen } from '@/hooks/use-fullscreen'
 import UserButton from './user-button'
 import AppBreadcrumbs from './app-breadcrumbs'
 import { AuthSessionUser } from '@/types/auth'
+import { SapDatabase } from '@/prisma/generated/client'
 
-export default function AppHeader({ user, dbCode }: { user: AuthSessionUser | null; dbCode: string | null }) {
+type AppHeaderProps = { user: AuthSessionUser | null; dbCode: string | null; sapDatabases: SapDatabase[] }
+
+export default function AppHeader({ user, dbCode, sapDatabases }: AppHeaderProps) {
   const { toggleFullscreen } = useFullscreen()
 
   return (
-    <header className='flex h-16 shrink-0 items-center gap-2 border-b bg-white px-4'>
+    //* dark class flips the theme tokens for the header only, portaled menus stay light
+    <header className='dark bg-primary-black text-foreground flex h-16 shrink-0 items-center gap-2 border-b px-4'>
       <TooltipWrapper label='Toggle Sidebar (Ctrl+B)'>
         <SidebarTrigger className='-ml-1' />
       </TooltipWrapper>
@@ -34,7 +38,7 @@ export default function AppHeader({ user, dbCode }: { user: AuthSessionUser | nu
 
         <KeyboardShortcuts />
 
-        <SapDatabaseSwitcher dbCode={dbCode} />
+        <SapDatabaseSwitcher dbCode={dbCode} sapDatabases={sapDatabases} />
 
         <UserButton user={user} />
       </div>

@@ -35,15 +35,19 @@ export function DataTable<TData>({ table, isLoading, isServerSide, getRowClassNa
       <ScrollArea className={cn('min-h-0 px-2', hasRows ? 'flex-1' : 'shrink-0')} type='auto'>
         <Table className='text-sm'>
           {hasRows && (
-            <TableHeader className='bg-background sticky top-0 z-10'>
+            //* dark class flips the header buttons and checkbox to their dark styles
+            <TableHeader className='dark sticky top-0 z-10'>
               {table.getHeaderGroups().map((headerGroup) => (
-                <TableRow key={headerGroup.id}>
+                <TableRow key={headerGroup.id} className='bg-primary-black hover:bg-primary-black border-b-0'>
                   {headerGroup.headers.map((header) => (
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
+                      className='text-white'
                       style={{
                         ...getCommonPinningStyles({ column: header.column, withBorder: true }),
+                        //! pinning styles set a background, override it so pinned headers stay black
+                        background: 'var(--color-primary-black)',
                         minWidth: header.column.columnDef.minSize,
                         maxWidth: header.column.columnDef.maxSize
                       }}

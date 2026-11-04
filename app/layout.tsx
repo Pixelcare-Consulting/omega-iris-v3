@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import TailwindIndicatorProvider from '@/components/providers/tailwind-indicator-provider'
 import ToastProvider from '@/components/providers/toast-provider'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { APP_CONFIG } from '@/constants/config'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -14,8 +15,11 @@ const geistSans = Geist({
 })
 
 export const metadata: Metadata = {
-  title: 'Next.js 16 Project Template',
-  description: 'Ultimate project template Next.js 16 with Shadcn UI'
+  title: {
+    default: `${APP_CONFIG.name} | ${APP_CONFIG.company}`,
+    template: `%s | ${APP_CONFIG.name}`
+  },
+  description: APP_CONFIG.description
 }
 
 export default function RootLayout({

@@ -1,3 +1,5 @@
+import { isProd } from './common'
+
 export const REQUEST_TIMEOUT = 30_000 //* 30 seconds
 export const SESSION_TIMEOUT = 30 * 60 * 1000 //* fallback when sap does not report one
 export const EXPIRY_BUFFER = 60 * 1000 //* treat a session as expired a minute early
@@ -15,9 +17,8 @@ export const SAP_DEFAULT_PAGE_SIZE = 500
 export const SAP_NO_PAGINATION = 'odata.maxpagesize=0'
 
 export const DEFAULT_SAP_DATABASES = [
-  { dbCode: 'PXC-LIVE_PH_2025', name: 'PXC PH', order: 1 },
-  { dbCode: 'PXC-LIVE_SG_2025', name: 'PXC SG', order: 2 },
-  { dbCode: 'PXC-LIVE_MY_2025', name: 'PXC MY', order: 3 },
-  { dbCode: 'PXC-DB_PH_TESTING', name: 'PXC PH (Testing)', order: 4 },
-  { dbCode: 'PXC-DB_SG_TESTING', name: 'PXC SG (Testing)', order: 5 }
+  { dbCode: 'OMEGA_P02', name: 'Omega Global Technologies Inc. ', order: 1, isActive: isProd },
+  { dbCode: 'OMEGA_P02_TESTING', name: 'US (Testing)', order: 2, isActive: !isProd },
+  { dbCode: 'OMEGA_PHIL', name: 'Omega GTI Asia Inc.', order: 3, isActive: isProd },
+  { dbCode: 'OMEGA_PHIL_TESTING', name: 'PH (Testing)', order: 4, isActive: !isProd }
 ]

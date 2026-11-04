@@ -81,7 +81,8 @@ function PermissionRow({ node, grantedByCode, depth }: { node: PermissionNode; g
           {node.description && <span className='text-muted-foreground/70 line-clamp-2 text-xs sm:truncate'>{node.description}</span>}
         </div>
 
-        {!hasChildren && (
+        {/* //* a parent with its own actions shows them too */}
+        {node.allowedActions.length > 0 && (
           <div className='flex flex-wrap items-center gap-1.5 sm:shrink-0'>
             {node.allowedActions.map((action) => {
               const isGranted = grantedActions?.has(action) ?? false

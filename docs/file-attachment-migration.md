@@ -1,6 +1,6 @@
 # Migrating File Attachments to Cloud Storage
 
-File attachments are stored on a [flydrive](https://flydrive.dev) disk. The `fs` driver writes them to `STORAGE_PATH` (default `../lis-storage`, outside the project). Moving them to S3, GCS, or any other flydrive-supported provider is a data migration, not a code rewrite.
+File attachments are stored on a [flydrive](https://flydrive.dev) disk. The `fs` driver writes them to `STORAGE_PATH` (default `../omega-iris-v3-storage`, outside the project). Moving them to S3, GCS, or any other flydrive-supported provider is a data migration, not a code rewrite.
 
 ## What actually moves
 

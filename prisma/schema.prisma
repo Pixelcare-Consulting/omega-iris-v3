@@ -202,6 +202,175 @@ model RoleSapDatabase {
     @@index([sapDatabaseCode])
 }
 
+model Site {
+    id          String  @id @default(cuid())
+    dbCode      String
+    code        String
+    name        String
+    description String?
+    isActive    Boolean @default(true)
+    isSystem    Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model ProcessZone {
+    id               String  @id @default(cuid())
+    dbCode           String
+    code             String
+    name             String
+    description      String?
+    isPalletEligible Boolean @default(false)
+    isActive         Boolean @default(true)
+    isSystem         Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model ProjectCategory {
+    id          String  @id @default(cuid())
+    dbCode      String
+    code        String
+    name        String
+    description String?
+    isActive    Boolean @default(true)
+    isSystem    Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    customerProjects CustomerProject[]
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model CustomerProject {
+    id           String  @id @default(cuid())
+    dbCode       String
+    code         String
+    name         String
+    description  String?
+    categoryCode String?
+    isActive     Boolean @default(true)
+    isSystem     Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    category ProjectCategory? @relation(fields: [dbCode, categoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([categoryCode])
+    @@index([deletedAt])
+}
+
+model Manufacturer {
+    id       String  @id @default(cuid())
+    dbCode   String
+    code     String
+    name     String
+    isActive Boolean @default(true)
+    isSystem Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    itemMasters ItemMaster[]
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model Commodity {
+    id       String  @id @default(cuid())
+    dbCode   String
+    code     String
+    name     String
+    isActive Boolean @default(true)
+    isSystem Boolean @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    itemMasters ItemMaster[]
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model ItemMaster {
+    id               String  @id @default(cuid())
+    dbCode           String
+    code             String //* MFG P/N
+    description      String?
+    manufacturerCode String?
+    commodityCode    String?
+    notes            String?
+    thumbnail        String? //* file attachment id
+    isActive         Boolean @default(true)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    manufacturer Manufacturer? @relation(fields: [dbCode, manufacturerCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+    commodity    Commodity?    @relation(fields: [dbCode, commodityCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+    @@unique([dbCode, code])
+    @@index([dbCode])
+    @@index([manufacturerCode])
+    @@index([commodityCode])
+    @@index([deletedAt])
+}
+
 model FileAttachment {
     id           String @id @default(cuid())
     moduleName   String //* which module owns the file, e.g. 'items'

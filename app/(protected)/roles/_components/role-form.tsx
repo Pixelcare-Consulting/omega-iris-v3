@@ -38,7 +38,7 @@ import Alert from '@/components/alert'
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useFieldArray } from 'react-hook-form'
-import { buildPermissionTree, getLeafPermissions } from '@/lib/permissions'
+import { buildPermissionTree, getAssignablePermissions } from '@/lib/permissions'
 import { PermissionTreeNode } from './role-permission-tree-node'
 import { Checkbox } from '@/components/ui/checkbox'
 import CanView from '@/components/rbac/can-view'
@@ -127,9 +127,9 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
   }, [name])
 
   const permissionTree = useMemo(() => buildPermissionTree(permissions.data ?? []), [permissions.data])
-  const allLeafPermissions = useMemo(() => getLeafPermissions(permissionTree), [permissionTree])
+  const allLeafPermissions = useMemo(() => getAssignablePermissions(permissionTree), [permissionTree])
 
-  //* map of leaf permissions to their selected actions
+  //* map of permissions to their selected actions
   const selectedActionsMap = useMemo(() => {
     const map = new Map<string, string[]>()
     permissionsFormData.forEach((p) => map.set(p.code, p.actions ?? []))
@@ -147,9 +147,9 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
     update(index, { code, actions: next })
   }
 
-  //* toggles a leaf's own actions, OR cascades to every descendant leaf if it's a group
+  //* toggles a node's own actions and cascades to every descendant
   const handleToggleNodeSelectAll = (node: (typeof permissionTree)[number]) => {
-    const leaves = getLeafPermissions([node])
+    const leaves = getAssignablePermissions([node])
     const allSelected = leaves.every((l) => l.allowedActions.every((a) => (selectedActionsMap.get(l.code) ?? []).includes(a)))
     const shouldSelect = !allSelected
 
@@ -168,7 +168,7 @@ export default function RoleForm({ pageMetaData, role }: RoleFormProps) {
 
   const isSomeSelected = allLeafPermissions.some((p) => (selectedActionsMap.get(p.code) ?? []).length > 0)
 
-  //* toggles all leaf's actions
+  //* toggles every permission's actions
   const handleToggleSelectAll = () => {
     const shouldSelect = !isAllSelected
     const next = fields.map((f) => {

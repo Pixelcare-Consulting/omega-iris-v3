@@ -103,7 +103,28 @@ import {
   CircleHelp,
   Lock,
   History,
-  Handshake
+  Handshake,
+  Tags,
+  FolderKanban,
+  MapPin,
+  Layers,
+  Container,
+  PackageOpen,
+  Truck,
+  Boxes,
+  ArrowLeftRight,
+  ListChecks,
+  FlaskConical,
+  PackageX,
+  ChartColumn,
+  Contact,
+  Store,
+  Factory,
+  Shapes,
+  Barcode,
+  Building,
+  Grid2x2,
+  FingerprintPattern
 } from 'lucide-react'
 
 export const Icons = {
@@ -210,7 +231,28 @@ export const Icons = {
   maximize: Maximize2,
   help: CircleHelp,
   history: History,
-  handshake: Handshake
+  handshake: Handshake,
+  tags: Tags,
+  folderKanban: FolderKanban,
+  mapPin: MapPin,
+  layers: Layers,
+  container: Container,
+  packageOpen: PackageOpen,
+  truck: Truck,
+  boxes: Boxes,
+  arrowLeftRight: ArrowLeftRight,
+  listChecks: ListChecks,
+  flaskConical: FlaskConical,
+  packageX: PackageX,
+  chartColumn: ChartColumn,
+  contact: Contact,
+  store: Store,
+  factory: Factory,
+  shapes: Shapes,
+  barcode: Barcode,
+  building: Building,
+  grid: Grid2x2,
+  fingerprint: FingerprintPattern
 }
 
 export type Icon = LucideIcon

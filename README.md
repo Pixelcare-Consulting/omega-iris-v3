@@ -82,7 +82,7 @@ SAP_TLS_REJECT_UNAUTHORIZED="false"
 | `NEXT_PUBLIC_NODE_ENV`          | no       | Set to `production` to hide the tailwind breakpoint indicator                                             |
 | `NEXT_PUBLIC_DISABLE_REPORTING` | no       | Set to `true` to hide the role report actions                                                             |
 | `SIGNIN_MAXIMUM_ATTEMPTS`       | no       | Failed sign in attempts before the account locks, defaults to `5`                                         |
-| `STORAGE_PATH`                  | no       | Where file attachments are stored, absolute or project-relative, defaults to `../pxc-portal-storage`      |
+| `STORAGE_PATH`                  | no       | Where file attachments are stored, absolute or project-relative, defaults to `../omega-iris-v3-storage`   |
 | `FILE_STORAGE_DISK`             | no       | Which flydrive disk is active, defaults to `fs`                                                           |
 | `SAP_BASE_URL`                  | yes      | SAP Service Layer host, without `/b1s/v1`                                                                 |
 | `SAP_USERNAME`                  | yes      | The one SAP service account every portal user shares                                                      |
@@ -91,7 +91,7 @@ SAP_TLS_REJECT_UNAUTHORIZED="false"
 
 Anything prefixed `NEXT_PUBLIC_` ships to the browser - keep secrets out of it.
 
-File attachments are written **outside** the project, to `../pxc-portal-storage` by default - inside it, uploads would land in the dev file watcher and in `next build`'s output file tracing, and any deploy that copies the project would ship them along. The default is relative to the working directory the app starts in, so set `STORAGE_PATH` to an absolute path anywhere the app is not started from the project root (a service, a PM2 `cwd`, a standalone build).
+File attachments are written **outside** the project, to `../omega-iris-v3-storage` by default - inside it, uploads would land in the dev file watcher and in `next build`'s output file tracing, and any deploy that copies the project would ship them along. The default is relative to the working directory the app starts in, so set `STORAGE_PATH` to an absolute path anywhere the app is not started from the project root (a service, a PM2 `cwd`, a standalone build).
 
 ## Scripts
 
@@ -147,15 +147,15 @@ There is no test setup in this repo - verify with `pnpm lint` and `pnpm build`.
 
 ## Shadcn Preset
 
-`--preset b1YmqvjQ8`
+`--preset b4gMYn6rw`
 
 ## Shadcn Decode Preset
 
-`pnpm dlx shadcn@latest preset decode b1YmqvjQ8`
+`pnpm dlx shadcn@latest preset decode b4gMYn6rw`
 
 ## You can apply only the theme or fonts from a preset without reinstalling UI components
 
-`pnpm dlx shadcn@latest apply b1YmqvjQ8 --only theme`
+`pnpm dlx shadcn@latest apply b4gMYn6rw --only theme`
 
 ## Modify the theme colors
 

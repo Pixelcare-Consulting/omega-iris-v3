@@ -57,7 +57,7 @@ export default function SapDatabaseSwitchingOverlay({ stage, databaseName, retry
       className='animate-in fade-in fixed inset-0 z-100 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-200 motion-reduce:animate-none'
     >
       <div className='bg-background animate-in fade-in zoom-in-95 flex w-full max-w-md flex-col items-center rounded-2xl px-12 py-14 text-center shadow-2xl duration-300 motion-reduce:animate-none'>
-        <HashLoader color={PRIMARY_COLOR} size={56} />
+        <HashLoader color={PRIMARY_COLOR} size={80} />
 
         {databaseName && (
           <div className='text-muted-foreground mt-8 flex items-center justify-center gap-2 text-sm'>

@@ -14,8 +14,10 @@ export default async function BusinessPartnerPage({ params }: { params: Promise<
 
   const isAdd = code === 'add'
 
+  const dbCode = await getCurrentDbCode()
+
   const [result, currentUserWithAbility] = await Promise.all([
-    isAdd ? null : getCurrentDbCode().then((dbCode) => getBusinessPartnerByCode(dbCode, decodeCodeParam(code))),
+    isAdd ? null : getBusinessPartnerByCode(dbCode, decodeCodeParam(code)),
     getCurrentUserWithAbility()
   ])
 

@@ -6,18 +6,20 @@ import FullscreenProvider from '@/components/providers/fullscreen-provider'
 import { useFullscreen } from '@/hooks/use-fullscreen'
 import AppHeader from './app-header'
 import { AuthSessionUser } from '@/types/auth'
+import { SapDatabase } from '@/prisma/generated/client'
 
 type AppPanelLayoutProps = {
   children: React.ReactNode
   user: AuthSessionUser | null
   dbCode: string | null
+  sapDatabases: SapDatabase[]
 }
 
 //! a client component, `children` still arrives rendered so the pages stay server components
-export default function AppPanelLayout({ children, user, dbCode }: AppPanelLayoutProps) {
+export default function AppPanelLayout({ children, user, dbCode, sapDatabases }: AppPanelLayoutProps) {
   return (
     <FullscreenProvider>
-      <AppPanelShell user={user} dbCode={dbCode}>
+      <AppPanelShell user={user} dbCode={dbCode} sapDatabases={sapDatabases}>
         {children}
       </AppPanelShell>
     </FullscreenProvider>
@@ -25,7 +27,7 @@ export default function AppPanelLayout({ children, user, dbCode }: AppPanelLayou
 }
 
 //* split out because the provider has to wrap whoever reads it
-function AppPanelShell({ children, user, dbCode }: AppPanelLayoutProps) {
+function AppPanelShell({ children, user, dbCode, sapDatabases }: AppPanelLayoutProps) {
   const { isFullscreen } = useFullscreen()
 
   return (
@@ -36,7 +38,7 @@ function AppPanelShell({ children, user, dbCode }: AppPanelLayoutProps) {
       <SidebarInset>
         {/* //* h-svh sizes this to the smallest viewport height */}
         <div className='flex h-svh flex-col bg-neutral-100'>
-          {!isFullscreen && <AppHeader user={user} dbCode={dbCode} />}
+          {!isFullscreen && <AppHeader user={user} dbCode={dbCode} sapDatabases={sapDatabases} />}
 
           {/* //! never scrolls, a page taller than the viewport scrolls inside itself so the header stays put */}
           <div className='min-h-0 flex-1 overflow-hidden'>{children}</div>

@@ -2,7 +2,7 @@
 
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
-import { PermissionNode, getLeafPermissions } from '@/lib/permissions'
+import { PermissionNode, getAssignablePermissions } from '@/lib/permissions'
 
 type PermissionTreeNodeProps = {
   node: PermissionNode
@@ -12,19 +12,57 @@ type PermissionTreeNodeProps = {
   onToggleNode: (node: PermissionNode) => void
 }
 
+function PermissionActions({
+  node,
+  selectedActions,
+  onToggleAction
+}: {
+  node: PermissionNode
+  selectedActions: string[]
+  onToggleAction: (code: string, action: string) => void
+}) {
+  return (
+    <div className='col-span-12 grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:col-span-8 sm:grid-cols-3 lg:grid-cols-6'>
+      {node.allowedActions.map((action) => (
+        <label key={`${node.code}-${action}`} className='flex cursor-pointer items-center gap-2 text-xs capitalize'>
+          <Checkbox checked={selectedActions.includes(action)} onCheckedChange={() => onToggleAction(node.code, action)} />
+          {action}
+        </label>
+      ))}
+    </div>
+  )
+}
+
 export function PermissionTreeNode({ node, depth = 0, selectedActionsMap, onToggleAction, onToggleNode }: PermissionTreeNodeProps) {
   const hasChildren = node.children.length > 0
 
   if (hasChildren) {
-    const leaves = getLeafPermissions([node])
-    const allSelected = leaves.every((l) => l.allowedActions.every((a) => (selectedActionsMap.get(l.code) ?? []).includes(a)))
-    const someSelected = leaves.some((l) => (selectedActionsMap.get(l.code) ?? []).length > 0)
+    const assignable = getAssignablePermissions([node])
+    const allSelected = assignable.every((p) => p.allowedActions.every((a) => (selectedActionsMap.get(p.code) ?? []).includes(a)))
+    const someSelected = assignable.some((p) => (selectedActionsMap.get(p.code) ?? []).length > 0)
 
     return (
       <div className='col-span-12 grid grid-cols-12 py-2'>
-        <div className='col-span-12 mb-1 flex items-center gap-2' style={{ paddingLeft: `${depth * 16 + 8}px` }}>
-          <Checkbox checked={someSelected ? (allSelected ? true : 'indeterminate') : false} onCheckedChange={() => onToggleNode(node)} />
-          <h1 className={cn('cursor-pointer text-sm font-semibold', depth > 0 && 'text-[13px]')}>{node.name}</h1>
+        {/* //* a parent's own actions sit on its row, same as a leaf */}
+        <div className='col-span-12 mb-1 grid grid-cols-12 items-center gap-2 pr-2'>
+          <div
+            className={cn('col-span-12 flex items-start gap-2', node.allowedActions.length > 0 && 'sm:col-span-4')}
+            style={{ paddingLeft: `${depth * 16 + 8}px` }}
+          >
+            <Checkbox
+              className='mt-0.5 shrink-0'
+              checked={someSelected ? (allSelected ? true : 'indeterminate') : false}
+              onCheckedChange={() => onToggleNode(node)}
+            />
+            <div className='flex flex-col justify-center'>
+              <h1 className={cn('cursor-pointer text-sm font-semibold', depth > 0 && 'text-[13px]')}>{node.name}</h1>
+              {node.description && <p className='-mt-0.5 text-xs text-neutral-400'>{node.description}</p>}
+            </div>
+          </div>
+
+          {node.allowedActions.length > 0 && (
+            <PermissionActions node={node} selectedActions={selectedActionsMap.get(node.code) ?? []} onToggleAction={onToggleAction} />
+          )}
         </div>
 
         <div className='col-span-12 flex flex-col divide-y'>
@@ -62,14 +100,7 @@ export function PermissionTreeNode({ node, depth = 0, selectedActionsMap, onTogg
         </div>
       </div>
 
-      <div className='col-span-12 grid grid-cols-2 items-center gap-x-4 gap-y-3 sm:col-span-8 sm:grid-cols-3 lg:grid-cols-6'>
-        {node.allowedActions.map((action) => (
-          <label key={`${node.code}-${action}`} className='flex cursor-pointer items-center gap-2 text-xs capitalize'>
-            <Checkbox checked={selectedActions.includes(action)} onCheckedChange={() => onToggleAction(node.code, action)} />
-            {action}
-          </label>
-        ))}
-      </div>
+      <PermissionActions node={node} selectedActions={selectedActions} onToggleAction={onToggleAction} />
     </div>
   )
 }

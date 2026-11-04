@@ -20,7 +20,8 @@ export function buildPermissionTree(permissions: Permission[]): PermissionNode[]
   return roots
 }
 
-//* recursively collects every leaf (permission with no children) under the given node(s)
-export function getLeafPermissions(nodes: PermissionNode[]): Permission[] {
-  return nodes.flatMap((node) => (node.children.length > 0 ? getLeafPermissions(node.children) : [node]))
+//* every permission that has actions to grant under the given node(s), parents included
+//! a parent like p-items guards its own page, so it must be grantable, not only its leaves
+export function getAssignablePermissions(nodes: PermissionNode[]): Permission[] {
+  return nodes.flatMap((node) => [...(node.allowedActions.length > 0 ? [node] : []), ...getAssignablePermissions(node.children)])
 }

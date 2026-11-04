@@ -14,8 +14,10 @@ export default async function ItemPage({ params }: { params: Promise<{ code: str
 
   const isAdd = code === 'add'
 
+  const dbCode = await getCurrentDbCode()
+
   const [result, currentUserWithAbility] = await Promise.all([
-    isAdd ? null : getCurrentDbCode().then((dbCode) => getItemByCode(dbCode, decodeCodeParam(code))),
+    isAdd ? null : getItemByCode(dbCode, decodeCodeParam(code)),
     getCurrentUserWithAbility()
   ])
 
