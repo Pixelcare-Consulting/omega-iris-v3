@@ -319,10 +319,12 @@ model CustomerProject {
 }
 
 model Manufacturer {
-    id     String @id @default(cuid())
-    dbCode String
-    code   String
-    name   String
+    id       String  @id @default(cuid())
+    dbCode   String
+    code     String
+    name     String
+    isActive Boolean @default(true)
+    isSystem Boolean @default(false)
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -338,10 +340,12 @@ model Manufacturer {
 }
 
 model Commodity {
-    id     String @id @default(cuid())
-    dbCode String
-    code   String
-    name   String
+    id       String  @id @default(cuid())
+    dbCode   String
+    code     String
+    name     String
+    isActive Boolean @default(true)
+    isSystem Boolean @default(false)
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt

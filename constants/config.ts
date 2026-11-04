@@ -91,8 +91,22 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.package,
         items: [
-          { title: 'Manufacturer', url: '/manufacturers', icon: Icons.factory, items: [] },
-          { title: 'Commodity', url: '/commodities', icon: Icons.shapes, items: [] },
+          {
+            title: 'Manufacturers',
+            url: '/manufacturers',
+            icon: Icons.factory,
+            items: [],
+            subjects: PERMISSIONS_CODES.MANUFACTURERS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Commodities',
+            url: '/commodities',
+            icon: Icons.shapes,
+            items: [],
+            subjects: PERMISSIONS_CODES.COMMODITIES,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
           { title: 'Item Master', url: '/item-master', icon: Icons.barcode, items: [] }
         ]
       },

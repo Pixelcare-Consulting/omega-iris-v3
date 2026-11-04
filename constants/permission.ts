@@ -21,6 +21,8 @@ export const PERMISSIONS_CODES = {
   PROCESS_ZONES: 'p-process-zones',
   PROJECT_CATEGORIES: 'p-project-categories',
   CUSTOMER_PROJECTS: 'p-customer-projects',
+  MANUFACTURERS: 'p-manufacturers',
+  COMMODITIES: 'p-commodities',
   TEST: 'p-test'
 } as const
 
@@ -83,6 +85,24 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     code: PERMISSIONS_CODES['CUSTOMER_PROJECTS'],
     name: 'Customer Projects',
     description: 'Customer Projects Module',
+    isParent: false,
+    parentCode: null,
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['MANUFACTURERS'],
+    name: 'Manufacturers',
+    description: 'Manufacturers Module',
+    isParent: false,
+    parentCode: null,
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['COMMODITIES'],
+    name: 'Commodities',
+    description: 'Commodities Module',
     isParent: false,
     parentCode: null,
     isSystem: true,
