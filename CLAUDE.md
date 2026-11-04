@@ -174,14 +174,18 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 - `findMenuItemByUrl` ([lib/config.ts](lib/config.ts)) resolves the current path to its `MenuItem`, prefix-matching without letting `/users` claim `/usersettings`.
 - `handleTabChange` ([lib/event-handler.ts](lib/event-handler.ts)) holds tab state in the `?tab=` search param.
 - `useConfirmAction` ([hooks/use-confirm-action.ts](hooks/use-confirm-action.ts)) is the confirm-modal-then-mutate flow used by delete/restore buttons.
+- `findSameText` ([lib/duplicate.ts](lib/duplicate.ts)) is the exact match for a duplicate check. Prisma's `equals` with `mode: 'insensitive'` runs as `ILIKE`, where `%` and `_` are wildcards, so `A_B` would clash with `AXB`. Query with `findMany`, then pick the real match with this. Every name check and the item master P/N check use it.
+- `toFieldListMessage` ([lib/duplicate.ts](lib/duplicate.ts)) builds the toast for several failed fields with the right grammar: "Code and Name already exist!", "MFG P/N already exists!".
+- `escapeLikeKeyword` ([lib/data-table.ts](lib/data-table.ts)) escapes `%`, `_` and `\` so a search matches them as typed. `buildGlobalFilterWhere` already calls it; any new `contains` filter on user input needs it too.
 
 ## File attachments
 
-- **Where the files are.** On a flydrive disk at `STORAGE_PATH` (default `../lis-storage`), outside the project so uploads stay out of the dev watcher and the build. [lib/storage.ts](lib/storage.ts) owns it: `getDisk`, `getActiveDiskName`, `generateAttachmentKey`.
+- **Where the files are.** On a flydrive disk at `STORAGE_PATH` (default `../omega-iris-v3-storage`), outside the project so uploads stay out of the dev watcher and the build. [lib/storage.ts](lib/storage.ts) owns it: `getDisk`, `getActiveDiskName`, `generateAttachmentKey`.
 - **Where the metadata is.** The `FileAttachment` model, keyed by `moduleName` + `referenceId`. Generic on purpose: another module reuses the same table and routes, and only picks its own permission and limits. Limits live in [constants/file-attachment.ts](constants/file-attachment.ts).
 - **Uploading.** `POST /api/file-attachments`, one file per request, called over XHR. It is a route handler and not a server action because only XHR can report upload progress.
 - **Reading.** `GET /api/file-attachments/[id]`, session required. Previews inline; `?download=1` saves.
 - **Everything else.** Reads, deletes and links use the normal safe-action pattern.
+- **Item master thumbnails** are the first user. The item saves first, then the image uploads with `referenceId = item.id`, then `setItemMasterThumbnail` points the item at it and deletes the old file. Export embeds them through `POST /api/item-masters/export` (exceljs + sharp), since `xlsx-js-style` cannot hold images.
 - **Deletes are permanent** for both attachments and links, so neither model has `deletedAt`. `deleteItem` only soft deletes, so an item's attachments survive for restore.
 - **Changing storage.** `pnpm files:migrate --from=<disk> --to=<disk>`, any two disks, either direction. See [docs/file-attachment-migration.md](docs/file-attachment-migration.md).
 

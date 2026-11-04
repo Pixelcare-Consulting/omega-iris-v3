@@ -1,12 +1,21 @@
-import { PERMISSIONS_CODES } from '@/constants/permission'
+import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
 //* module names namespace stored objects and scope every query
-export const FILE_ATTACHMENT_MODULES = { SETTINGS: 'settings' } as const
+export const FILE_ATTACHMENT_MODULES = { SETTINGS: 'settings', ITEM_MASTERS: 'item-masters' } as const
 
 //* which permission guards uploads for each module
 export const FILE_ATTACHMENT_MODULE_PERMISSIONS = {
-  [FILE_ATTACHMENT_MODULES.SETTINGS]: PERMISSIONS_CODES.SETTINGS
+  [FILE_ATTACHMENT_MODULES.SETTINGS]: PERMISSIONS_CODES.SETTINGS,
+  [FILE_ATTACHMENT_MODULES.ITEM_MASTERS]: PERMISSIONS_CODES.ITEM_MASTERS
 } as const
+
+//* which actions allow an upload, any one is enough, modules not listed need create
+//* settings has no create, an image upload is part of editing it
+//* an item thumbnail is set while creating or editing the item
+export const FILE_ATTACHMENT_MODULE_UPLOAD_ACTIONS: Partial<Record<string, string[]>> = {
+  [FILE_ATTACHMENT_MODULES.SETTINGS]: [PERMISSIONS_ALLOWED_ACTIONS.EDIT],
+  [FILE_ATTACHMENT_MODULES.ITEM_MASTERS]: [PERMISSIONS_ALLOWED_ACTIONS.CREATE, PERMISSIONS_ALLOWED_ACTIONS.EDIT]
+}
 
 export const FILE_ATTACHMENT_DISKS = { FS: 'fs' } as const
 

@@ -23,6 +23,7 @@ export const PERMISSIONS_CODES = {
   CUSTOMER_PROJECTS: 'p-customer-projects',
   MANUFACTURERS: 'p-manufacturers',
   COMMODITIES: 'p-commodities',
+  ITEM_MASTERS: 'p-item-masters',
   TEST: 'p-test'
 } as const
 
@@ -103,6 +104,15 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     code: PERMISSIONS_CODES['COMMODITIES'],
     name: 'Commodities',
     description: 'Commodities Module',
+    isParent: false,
+    parentCode: null,
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['ITEM_MASTERS'],
+    name: 'Item Masters',
+    description: 'Item Masters Module',
     isParent: false,
     parentCode: null,
     isSystem: true,

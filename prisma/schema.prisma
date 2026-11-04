@@ -202,27 +202,6 @@ model RoleSapDatabase {
     @@index([sapDatabaseCode])
 }
 
-model FileAttachment {
-    id           String @id @default(cuid())
-    moduleName   String //* which module owns the file, e.g. 'items'
-    referenceId  String //* which record in that module, e.g. an item's filingNum, a String so every module can use its own identifier
-    disk         String //* which disk holds the object right now, e.g. 'fs', 's3'
-    key          String @unique
-    originalName String
-    mimeType     String
-    size         Int
-
-    //* upload only, an attachment is never edited, so there is nothing to track an update with
-    uploadedAt DateTime @default(now())
-    uploadedBy Int?
-
-    uploadedByUser User? @relation(name: "UploadedFileAttachments", fields: [uploadedBy], references: [code], onUpdate: Cascade)
-
-    //* moduleName + referenceId stand in for a foreign key, so one table serves every module
-    @@index([moduleName, referenceId])
-    @@index([uploadedBy])
-}
-
 model Site {
     id          String  @id @default(cuid())
     dbCode      String
@@ -333,6 +312,8 @@ model Manufacturer {
     updatedBy Int?
     deletedBy Int?
 
+    itemMasters ItemMaster[]
+
     @@unique([dbCode, code])
     @@unique([dbCode, name])
     @@index([dbCode])
@@ -354,10 +335,61 @@ model Commodity {
     updatedBy Int?
     deletedBy Int?
 
+    itemMasters ItemMaster[]
+
     @@unique([dbCode, code])
     @@unique([dbCode, name])
     @@index([dbCode])
     @@index([deletedAt])
+}
+
+model ItemMaster {
+    id               String  @id @default(cuid())
+    dbCode           String
+    code             String //* MFG P/N
+    description      String?
+    manufacturerCode String?
+    commodityCode    String?
+    notes            String?
+    thumbnail        String? //* file attachment id
+    isActive         Boolean @default(true)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    manufacturer Manufacturer? @relation(fields: [dbCode, manufacturerCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+    commodity    Commodity?    @relation(fields: [dbCode, commodityCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+    @@unique([dbCode, code])
+    @@index([dbCode])
+    @@index([manufacturerCode])
+    @@index([commodityCode])
+    @@index([deletedAt])
+}
+
+model FileAttachment {
+    id           String @id @default(cuid())
+    moduleName   String //* which module owns the file, e.g. 'items'
+    referenceId  String //* which record in that module, e.g. an item's filingNum, a String so every module can use its own identifier
+    disk         String //* which disk holds the object right now, e.g. 'fs', 's3'
+    key          String @unique
+    originalName String
+    mimeType     String
+    size         Int
+
+    //* upload only, an attachment is never edited, so there is nothing to track an update with
+    uploadedAt DateTime @default(now())
+    uploadedBy Int?
+
+    uploadedByUser User? @relation(name: "UploadedFileAttachments", fields: [uploadedBy], references: [code], onUpdate: Cascade)
+
+    //* moduleName + referenceId stand in for a foreign key, so one table serves every module
+    @@index([moduleName, referenceId])
+    @@index([uploadedBy])
 }
 
 //* multi-tenant sap database switcher

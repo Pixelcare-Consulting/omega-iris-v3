@@ -107,7 +107,14 @@ export const MENU_GROUPS: MenuGroup[] = [
             subjects: PERMISSIONS_CODES.COMMODITIES,
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
-          { title: 'Item Master', url: '/item-master', icon: Icons.barcode, items: [] }
+          {
+            title: 'Item Master',
+            url: '/item-masters',
+            icon: Icons.barcode,
+            items: [],
+            subjects: PERMISSIONS_CODES.ITEM_MASTERS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          }
         ]
       },
       {

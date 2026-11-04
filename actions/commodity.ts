@@ -11,9 +11,9 @@ import { codeParamsSchema } from '@/schema/common'
 import { logger } from '@/lib/logger'
 import { commodityFormSchema } from '@/schema/commodity'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
-import { isUniqueConstraintError, toDuplicateMessage } from '@/lib/duplicate'
+import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
-import { capitalize } from 'radash'
+import { FilterOption } from '@/types/data-table'
 
 export async function getCommodities(dbCode: string | null) {
   if (!dbCode) return []
@@ -22,6 +22,20 @@ export async function getCommodities(dbCode: string | null) {
     return await db.commodity.findMany({ where: { dbCode, deletedAt: null, isActive: true }, orderBy: { code: 'asc' } })
   } catch (err: any) {
     logger.error(err, '[GET_COMMODITIES_ERROR]:')
+    return []
+  }
+}
+
+//* filter options, deleted and inactive rows too so old records still filter
+export async function getCommodityOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const commodities = await db.commodity.findMany({ where: { dbCode }, select: { code: true, name: true }, orderBy: { code: 'asc' } })
+
+    return commodities.map((commodity) => ({ label: `${commodity.code} - ${commodity.name}`, value: commodity.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_COMMODITY_OPTIONS_ERROR]:')
     return []
   }
 }
@@ -113,13 +127,15 @@ export const upsertCommodity = action
 
     try {
       //* deleted rows count too, the unique keys include them
-      const [existingCode, existingName] = await Promise.all([
+      const [existingCode, sameNames] = await Promise.all([
         //* code is locked after create, so an edit skips it
         isCreate ? db.commodity.findFirst({ where: { dbCode, code: { equals: code, mode: 'insensitive' } } }) : null,
-        db.commodity.findFirst({
+        db.commodity.findMany({
           where: { dbCode, name: { equals: data.name, mode: 'insensitive' }, ...(id && { NOT: { id } }) }
         })
       ])
+
+      const existingName = findSameText(sameNames, (row) => row.name, data.name)
 
       const duplicates: DuplicateFields = []
 
@@ -128,8 +144,8 @@ export const upsertCommodity = action
 
       if (duplicates.length > 0) {
         const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
-        const message = duplicates.map((d) => d.name).join(', ')
-        return { status: 401, error: true, message: `${capitalize(message)} already exists!`, action: actionTag, paths }
+        const message = toFieldListMessage(duplicates, 'already exists!', 'already exist!')
+        return { status: 401, error: true, message, action: actionTag, paths }
       }
 
       //* update commodity
@@ -193,6 +209,12 @@ export const deleteCommodity = action
       //! the table hides these for system rows, this is the check behind it
       if (commodity.isSystem) {
         return { status: 403, error: true, message: 'System generated commodity cannot be deleted!', action: actionTag }
+      }
+
+      const itemMasterCount = await db.itemMaster.count({ where: { dbCode, commodityCode: commodity.code, deletedAt: null } })
+
+      if (itemMasterCount > 0) {
+        return { status: 409, error: true, message: 'Commodity is in use by item masters!', action: actionTag }
       }
 
       await db.commodity.update({ where: { id: commodity.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
