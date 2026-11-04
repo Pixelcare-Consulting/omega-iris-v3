@@ -15,8 +15,10 @@ export default async function SitePage({ params }: { params: Promise<{ code: str
 
   const isAdd = code === 'add'
 
+  const dbCode = await getCurrentDbCode()
+
   const [site, currentUserWithAbility] = await Promise.all([
-    isAdd ? null : getCurrentDbCode().then((dbCode) => getSiteByCode(dbCode, decodeCodeParam(code).toUpperCase())), //* codes are stored uppercase
+    isAdd ? null : getSiteByCode(dbCode, decodeCodeParam(code).toUpperCase()), //* codes are stored uppercase
     getCurrentUserWithAbility()
   ])
 

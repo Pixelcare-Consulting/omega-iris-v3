@@ -12,8 +12,10 @@ import { authorizePage } from '@/lib/authorization'
 export default async function ProjectCategoryViewPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
+  const dbCode = await getCurrentDbCode()
+
   const [projectCategory, currentUserWithAbility] = await Promise.all([
-    getCurrentDbCode().then((dbCode) => getProjectCategoryByCode(dbCode, decodeCodeParam(code).toUpperCase())),
+    getProjectCategoryByCode(dbCode, decodeCodeParam(code).toUpperCase()),
     getCurrentUserWithAbility()
   ])
 

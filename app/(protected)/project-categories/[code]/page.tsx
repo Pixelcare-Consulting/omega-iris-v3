@@ -15,8 +15,10 @@ export default async function ProjectCategoryPage({ params }: { params: Promise<
 
   const isAdd = code === 'add'
 
+  const dbCode = await getCurrentDbCode()
+
   const [projectCategory, currentUserWithAbility] = await Promise.all([
-    isAdd ? null : getCurrentDbCode().then((dbCode) => getProjectCategoryByCode(dbCode, decodeCodeParam(code).toUpperCase())), //* codes are stored uppercase
+    isAdd ? null : getProjectCategoryByCode(dbCode, decodeCodeParam(code).toUpperCase()), //* codes are stored uppercase
     getCurrentUserWithAbility()
   ])
 

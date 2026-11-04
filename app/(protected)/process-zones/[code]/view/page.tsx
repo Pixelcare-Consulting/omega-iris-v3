@@ -12,8 +12,10 @@ import { authorizePage } from '@/lib/authorization'
 export default async function ProcessZoneViewPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
+  const dbCode = await getCurrentDbCode()
+
   const [processZone, currentUserWithAbility] = await Promise.all([
-    getCurrentDbCode().then((dbCode) => getProcessZoneByCode(dbCode, decodeCodeParam(code).toUpperCase())),
+    getProcessZoneByCode(dbCode, decodeCodeParam(code).toUpperCase()),
     getCurrentUserWithAbility()
   ])
 

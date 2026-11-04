@@ -215,7 +215,7 @@ export default function ProjectCategoryForm({ pageMetaData, projectCategory }: P
                     name='isActive'
                     label='Active'
                     layout='choice-card'
-                    description='Inactive categories cannot be picked on new projects'
+                    description='Inactive categories are hidden from selection'
                     extendedProps={{ switchProps: { disabled: isCreate } }}
                   />
                 </Column>

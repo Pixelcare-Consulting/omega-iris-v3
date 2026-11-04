@@ -19,7 +19,7 @@ export async function getSites(dbCode: string | null) {
   if (!dbCode) return []
 
   try {
-    return await db.site.findMany({ where: { dbCode, deletedAt: null }, orderBy: { code: 'asc' } })
+    return await db.site.findMany({ where: { dbCode, deletedAt: null, isActive: true }, orderBy: { code: 'asc' } })
   } catch (err: any) {
     logger.error(err, '[GET_SITES_ERROR]:')
     return []

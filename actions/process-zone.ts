@@ -19,7 +19,7 @@ export async function getProcessZones(dbCode: string | null) {
   if (!dbCode) return []
 
   try {
-    return await db.processZone.findMany({ where: { dbCode, deletedAt: null }, orderBy: { code: 'asc' } })
+    return await db.processZone.findMany({ where: { dbCode, deletedAt: null, isActive: true }, orderBy: { code: 'asc' } })
   } catch (err: any) {
     logger.error(err, '[GET_PROCESS_ZONES_ERROR]:')
     return []

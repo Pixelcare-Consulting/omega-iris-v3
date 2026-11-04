@@ -24,7 +24,7 @@ export async function getCustomerProjects(dbCode: string | null) {
 
   try {
     return await db.customerProject.findMany({
-      where: { dbCode, deletedAt: null },
+      where: { dbCode, deletedAt: null, isActive: true },
       include: COMMON_CUSTOMER_PROJECT_INCLUDE,
       orderBy: { code: 'asc' }
     })

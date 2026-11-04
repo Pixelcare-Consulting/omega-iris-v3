@@ -14,14 +14,33 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 import { isUniqueConstraintError, toDuplicateMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
 import { capitalize } from 'radash'
+import { FilterOption } from '@/types/data-table'
 
 export async function getProjectCategories(dbCode: string | null) {
   if (!dbCode) return []
 
   try {
-    return await db.projectCategory.findMany({ where: { dbCode, deletedAt: null }, orderBy: { code: 'asc' } })
+    return await db.projectCategory.findMany({ where: { dbCode, deletedAt: null, isActive: true }, orderBy: { code: 'asc' } })
   } catch (err: any) {
     logger.error(err, '[GET_PROJECT_CATEGORIES_ERROR]:')
+    return []
+  }
+}
+
+//* table filter options, inactive kept so old projects stay filterable
+export async function getProjectCategoryOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const categories = await db.projectCategory.findMany({
+      where: { dbCode, deletedAt: null },
+      select: { code: true, name: true },
+      orderBy: { code: 'asc' }
+    })
+
+    return categories.map((category) => ({ label: `${category.code} - ${category.name}`, value: category.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_PROJECT_CATEGORY_OPTIONS_ERROR]:')
     return []
   }
 }

@@ -15,8 +15,10 @@ export default async function ProcessZonePage({ params }: { params: Promise<{ co
 
   const isAdd = code === 'add'
 
+  const dbCode = await getCurrentDbCode()
+
   const [processZone, currentUserWithAbility] = await Promise.all([
-    isAdd ? null : getCurrentDbCode().then((dbCode) => getProcessZoneByCode(dbCode, decodeCodeParam(code).toUpperCase())), //* codes are stored uppercase
+    isAdd ? null : getProcessZoneByCode(dbCode, decodeCodeParam(code).toUpperCase()), //* codes are stored uppercase
     getCurrentUserWithAbility()
   ])
 

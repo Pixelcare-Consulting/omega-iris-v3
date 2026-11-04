@@ -334,6 +334,26 @@ model Manufacturer {
     @@unique([dbCode, code])
     @@unique([dbCode, name])
     @@index([dbCode])
+    @@index([deletedAt])
+}
+
+model Commodity {
+    id     String @id @default(cuid())
+    dbCode String
+    code   String
+    name   String
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, name])
+    @@index([dbCode])
+    @@index([deletedAt])
 }
 
 //* multi-tenant sap database switcher

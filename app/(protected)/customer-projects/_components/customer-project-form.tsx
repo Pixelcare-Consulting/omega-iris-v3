@@ -60,10 +60,9 @@ export default function CustomerProjectForm({ pageMetaData, customerProject }: C
   //* the picker lists active categories only, a project already on an inactive or deleted one keeps it selectable
   const categoryOptions = useMemo(() => {
     const getLabel = (category: { code: string; name: string }) => `${category.code} - ${category.name}`
-    const activeCategories = projectCategories.data.filter((category) => category.isActive)
     const current = customerProject?.category ? toFormOption(customerProject.category, getLabel) : null
 
-    return withCurrentOption(toFormOptions(activeCategories, getLabel), current)
+    return withCurrentOption(toFormOptions(projectCategories.data, getLabel), current)
   }, [projectCategories.data, customerProject])
 
   const form = useForm({
@@ -240,7 +239,7 @@ export default function CustomerProjectForm({ pageMetaData, customerProject }: C
                     name='isActive'
                     label='Active'
                     layout='choice-card'
-                    description='Is this customer project active?'
+                    description='Inactive projects are hidden from selection'
                     extendedProps={{ switchProps: { disabled: isCreate } }}
                   />
                 </Column>

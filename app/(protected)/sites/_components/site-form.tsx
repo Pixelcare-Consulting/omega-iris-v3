@@ -215,7 +215,7 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
                     name='isActive'
                     label='Active'
                     layout='choice-card'
-                    description='Is this site active?'
+                    description='Inactive sites are hidden from selection'
                     extendedProps={{ switchProps: { disabled: isCreate } }}
                   />
                 </Column>

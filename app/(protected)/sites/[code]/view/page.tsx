@@ -12,8 +12,10 @@ import { authorizePage } from '@/lib/authorization'
 export default async function SiteViewPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params
 
+  const dbCode = await getCurrentDbCode()
+
   const [site, currentUserWithAbility] = await Promise.all([
-    getCurrentDbCode().then((dbCode) => getSiteByCode(dbCode, decodeCodeParam(code).toUpperCase())),
+    getSiteByCode(dbCode, decodeCodeParam(code).toUpperCase()),
     getCurrentUserWithAbility()
   ])
 

@@ -215,7 +215,7 @@ export default function ProcessZoneForm({ pageMetaData, processZone }: ProcessZo
                     name='isActive'
                     label='Active'
                     layout='choice-card'
-                    description='Is this process zone active?'
+                    description='Inactive process zones are hidden from selection'
                     extendedProps={{ switchProps: { disabled: isCreate } }}
                   />
                 </Column>
