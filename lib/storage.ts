@@ -5,7 +5,7 @@ import { FSDriver } from 'flydrive/drivers/fs'
 import { FILE_ATTACHMENT_DISKS } from '@/constants/file-attachment'
 
 //! kept outside the project
-const DEFAULT_STORAGE_PATH = '../lis-storage'
+const DEFAULT_STORAGE_PATH = '../omega-iris-v3-storage'
 
 //* one disk per name, cached so dev HMR does not stack instances
 const globalForStorage = globalThis as unknown as { disks?: Map<string, Disk> }
