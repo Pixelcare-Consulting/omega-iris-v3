@@ -239,6 +239,11 @@ export function splitGlobalFilterKeywords(globalFilter: string) {
     .filter(Boolean)
 }
 
+//! contains runs as ILIKE, where % and _ are wildcards, so they get escaped to match as typed
+export function escapeLikeKeyword(keyword: string) {
+  return keyword.replace(/[\\%_]/g, (char) => `\\${char}`)
+}
+
 export function buildGlobalFilterWhere<T extends keyof PModels>(globalFilter: string, config: GlobalFilterConfig<T>) {
   const { stringFields, booleanFields = [], numericFields = [], arrayFields = [], relationFields = [] } = config
 
@@ -254,9 +259,11 @@ export function buildGlobalFilterWhere<T extends keyof PModels>(globalFilter: st
       const numericValue = Number(keyword)
       const isNumeric = !isNaN(numericValue) && keyword !== ''
 
+      const likeKeyword = escapeLikeKeyword(keyword)
+
       const OR: Record<string, any>[] = [
         //* string fields
-        ...stringFields.map((field) => ({ [field]: { contains: keyword, mode: 'insensitive' } })),
+        ...stringFields.map((field) => ({ [field]: { contains: likeKeyword, mode: 'insensitive' } })),
 
         //* numeric fields
         ...(isNumeric ? numericFields.map((field) => ({ [field]: { equals: numericValue } })) : []),
@@ -276,7 +283,7 @@ export function buildGlobalFilterWhere<T extends keyof PModels>(globalFilter: st
         //* relation fields
         ...relationFields.flatMap(({ relation, fields, isArray = false, relationNullable = false, where = {} }) =>
           fields.map((field) => {
-            const fieldFilter = { ...where, ...toNestedFilter(field, { contains: keyword, mode: 'insensitive' }) }
+            const fieldFilter = { ...where, ...toNestedFilter(field, { contains: likeKeyword, mode: 'insensitive' }) }
 
             return {
               [relation]: isArray
