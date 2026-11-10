@@ -32,6 +32,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import CanView from '@/components/rbac/can-view'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { ComboboxField } from '@/components/forms/combobox-field'
+import { renderCodeItem } from '@/components/forms/combobox-item-content'
 import { toFormOption, toFormOptions, withCurrentOption } from '@/lib/form'
 import { useProjectCategories } from '@/hooks/safe-actions/project-category'
 
@@ -59,10 +60,9 @@ export default function CustomerProjectForm({ pageMetaData, customerProject }: C
 
   //* the picker lists active categories only, a project already on an inactive or deleted one keeps it selectable
   const categoryOptions = useMemo(() => {
-    const getLabel = (category: { code: string; name: string }) => `${category.code} - ${category.name}`
-    const current = customerProject?.category ? toFormOption(customerProject.category, getLabel) : null
+    const current = customerProject?.category ? toFormOption(customerProject.category) : null
 
-    return withCurrentOption(toFormOptions(projectCategories.data, getLabel), current)
+    return withCurrentOption(toFormOptions(projectCategories.data), current)
   }, [projectCategories.data, customerProject])
 
   const form = useForm({
@@ -221,6 +221,8 @@ export default function CustomerProjectForm({ pageMetaData, customerProject }: C
                     label='Category'
                     data={categoryOptions}
                     isLoading={projectCategories.isLoading}
+                    searchKeys={['value']}
+                    renderItem={renderCodeItem}
                   />
                 </Column>
 

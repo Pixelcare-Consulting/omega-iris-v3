@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { FormOptions } from '@/types/common'
 
 type ComboboxItemContentProps = {
   label: React.ReactNode
@@ -61,4 +62,9 @@ export default function ComboboxItemContent({
       )}
     </>
   )
+}
+
+//* name on the left, code on the right, pass as renderItem with searchKeys={['value']} so the code is searchable
+export function renderCodeItem(item: FormOptions) {
+  return <ComboboxItemContent label={item.label} trailing={<span className='text-xs font-semibold'>{item.value}</span>} />
 }

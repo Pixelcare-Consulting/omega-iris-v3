@@ -34,6 +34,7 @@ import CanView from '@/components/rbac/can-view'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { FILE_ATTACHMENT_MODULES } from '@/constants/file-attachment'
 import { ComboboxField } from '@/components/forms/combobox-field'
+import { renderCodeItem } from '@/components/forms/combobox-item-content'
 import { toFormOption, toFormOptions, withCurrentOption } from '@/lib/form'
 import { uploadFileAttachment } from '@/lib/file-attachment'
 import { StagedImages, StagedImagesContext } from '@/contexts/staged-images'
@@ -54,8 +55,6 @@ const DEFAULT_VALUES: ItemMasterForm = {
   thumbnail: null,
   isActive: true
 }
-
-const getReferenceLabel = (reference: { code: string; name: string }) => `${reference.code} - ${reference.name}`
 
 export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterFormProps) {
   const router = useRouter()
@@ -88,13 +87,13 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
 
   //* the pickers list active rows only, an item already on an inactive or deleted one keeps it selectable
   const manufacturerOptions = useMemo(() => {
-    const current = itemMaster?.manufacturer ? toFormOption(itemMaster.manufacturer, getReferenceLabel) : null
-    return withCurrentOption(toFormOptions(manufacturers.data, getReferenceLabel), current)
+    const current = itemMaster?.manufacturer ? toFormOption(itemMaster.manufacturer) : null
+    return withCurrentOption(toFormOptions(manufacturers.data), current)
   }, [manufacturers.data, itemMaster])
 
   const commodityOptions = useMemo(() => {
-    const current = itemMaster?.commodity ? toFormOption(itemMaster.commodity, getReferenceLabel) : null
-    return withCurrentOption(toFormOptions(commodities.data, getReferenceLabel), current)
+    const current = itemMaster?.commodity ? toFormOption(itemMaster.commodity) : null
+    return withCurrentOption(toFormOptions(commodities.data), current)
   }, [commodities.data, itemMaster])
 
   const form = useForm({
@@ -339,6 +338,8 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
                           label='Manufacturer'
                           data={manufacturerOptions}
                           isLoading={manufacturers.isLoading}
+                          searchKeys={['value']}
+                          renderItem={renderCodeItem}
                         />
                       </Column>
 
@@ -354,6 +355,8 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
                           label='Commodity'
                           data={commodityOptions}
                           isLoading={commodities.isLoading}
+                          searchKeys={['value']}
+                          renderItem={renderCodeItem}
                         />
                       </Column>
 
