@@ -82,8 +82,22 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.handshake,
         items: [
-          { title: 'Customers', url: '/customers', icon: Icons.contact, items: [] },
-          { title: 'Vendors', url: '/vendors', icon: Icons.store, items: [] }
+          {
+            title: 'Customers',
+            url: '/customers',
+            icon: Icons.contact,
+            items: [],
+            subjects: PERMISSIONS_CODES.CUSTOMERS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Vendors',
+            url: '/vendors',
+            icon: Icons.store,
+            items: [],
+            subjects: PERMISSIONS_CODES.VENDORS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          }
         ]
       },
       {

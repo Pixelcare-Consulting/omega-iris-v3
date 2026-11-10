@@ -371,6 +371,89 @@ model ItemMaster {
     @@index([deletedAt])
 }
 
+model BpMaster {
+    id     String @id @default(cuid())
+    dbCode String
+    code   String //* C00001, V00001
+    name   String
+    type   String //* C customer, S vendor
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    addresses BpAddress[]
+    contacts  BpContactPerson[]
+
+    @@unique([dbCode, code])
+    @@unique([dbCode, type, name])
+    @@index([dbCode])
+    @@index([type])
+    @@index([deletedAt])
+}
+
+model BpAddress {
+    id                String  @id @default(cuid())
+    dbCode            String
+    bpCode            String //* parent C00001 / V00001
+    code              String //* A01, one series per bp
+    name              String
+    type              String //* B billing, S shipping
+    isDefault         Boolean @default(false)
+    line1             String?
+    line2             String?
+    line3             String?
+    streetNo          String?
+    buildingFloorRoom String?
+    block             String?
+    city              String?
+    zipCode           String?
+    countryCode       String? //* ISO 2
+    countryName       String?
+    stateCode         String? //* only unique within its country
+    stateName         String?
+
+    //* no soft delete, a removed address is deleted for good
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    createdBy Int?
+    updatedBy Int?
+
+    bpMaster BpMaster @relation(fields: [dbCode, bpCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([dbCode, bpCode, code])
+    @@index([dbCode, bpCode])
+}
+
+model BpContactPerson {
+    id        String  @id @default(cuid())
+    dbCode    String
+    bpCode    String //* parent C00001 / V00001
+    code      String //* CP01, one series per bp
+    name      String
+    isDefault Boolean @default(false)
+    email     String?
+    title     String?
+    position  String?
+    tel1      String?
+    tel2      String?
+    phone     String?
+
+    //* no soft delete, a removed contact is deleted for good
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+    createdBy Int?
+    updatedBy Int?
+
+    bpMaster BpMaster @relation(fields: [dbCode, bpCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([dbCode, bpCode, code])
+    @@index([dbCode, bpCode])
+}
+
 model FileAttachment {
     id           String @id @default(cuid())
     moduleName   String //* which module owns the file, e.g. 'items'
@@ -419,6 +502,19 @@ model SapSession {
 
     createdAt DateTime @default(now())
     updatedAt DateTime @default(now()) @updatedAt
+}
+
+//* one row per key and scope, a new scope starts back at 1
+model SequenceCounter {
+    id      String @id @default(cuid())
+    key     String //* e.g. BP_CUSTOMER, PALLET
+    scope   String @default("") //* reset bucket, empty never resets
+    current Int    @default(0)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+
+    @@unique([key, scope])
 }
 
 //* test table for test data table
