@@ -297,62 +297,38 @@ model CustomerProject {
     @@index([deletedAt])
 }
 
-model Manufacturer {
-    id       String  @id @default(cuid())
-    dbCode   String
-    code     String
-    name     String
-    isActive Boolean @default(true)
-    isSystem Boolean @default(false)
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
-
-    itemMasters ItemMaster[]
-
-    @@unique([dbCode, code])
-    @@unique([dbCode, name])
-    @@index([dbCode])
-    @@index([deletedAt])
+//* one status for every model that syncs with sap
+enum SapSyncStatus {
+    PENDING //* portal only, never pushed
+    SYNCED //* linked to a sap item
+    FAILED //* last push was refused, see syncError
 }
 
-model Commodity {
-    id       String  @id @default(cuid())
-    dbCode   String
-    code     String
-    name     String
-    isActive Boolean @default(true)
-    isSystem Boolean @default(false)
-
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
-
-    itemMasters ItemMaster[]
-
-    @@unique([dbCode, code])
-    @@unique([dbCode, name])
-    @@index([dbCode])
-    @@index([deletedAt])
+enum SapSyncRunStatus {
+    RUNNING
+    COMPLETED
+    FAILED
 }
 
+//* PascalCase fields map to sap, camelCase ones are portal only
 model ItemMaster {
-    id               String  @id @default(cuid())
-    dbCode           String
-    code             String //* MFG P/N
-    description      String?
-    manufacturerCode String?
-    commodityCode    String?
-    notes            String?
-    thumbnail        String? //* file attachment id
-    isActive         Boolean @default(true)
+    id        String  @id @default(cuid())
+    dbCode    String
+    notes     String?
+    thumbnail String? //* file attachment id
+    isActive  Boolean @default(true)
+
+    //* sap fields
+    ItemCode   String //* MFG P/N, typed by the user
+    ItemName   String?
+    FirmCode   Int?
+    FirmName   String?
+    ItmsGrpCod Int?
+    ItmsGrpNam String?
+
+    syncStatus SapSyncStatus @default(PENDING)
+    syncedAt   DateTime?
+    syncError  String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -361,14 +337,33 @@ model ItemMaster {
     updatedBy Int?
     deletedBy Int?
 
-    manufacturer Manufacturer? @relation(fields: [dbCode, manufacturerCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
-    commodity    Commodity?    @relation(fields: [dbCode, commodityCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
-
-    @@unique([dbCode, code])
+    @@unique([dbCode, ItemCode])
     @@index([dbCode])
-    @@index([manufacturerCode])
-    @@index([commodityCode])
+    @@index([syncStatus])
     @@index([deletedAt])
+}
+
+//* sync state per sap database and sync type
+model SapSyncState {
+    id     String @id @default(cuid())
+    dbCode String
+    key    String //* a SAP_SYNC_KEYS value
+
+    lastSyncAt DateTime? //* start of the last full successful pull, the next pull reads from here
+
+    lastRunStatus     SapSyncRunStatus?
+    lastRunStartedAt  DateTime?
+    lastRunFinishedAt DateTime?
+    lastRunError      String?
+    lastRunBy         Int?
+    lastRunCount      Int? //* rows written by the last run
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @default(now()) @updatedAt
+
+    sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+
+    @@unique([dbCode, key])
 }
 
 model BpMaster {
@@ -489,6 +484,7 @@ model SapDatabase {
     updatedAt        DateTime          @default(now()) @updatedAt
     sapSession       SapSession?
     roleSapDatabases RoleSapDatabase[]
+    sapSyncStates    SapSyncState[]
 }
 
 model SapSession {

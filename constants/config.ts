@@ -101,35 +101,12 @@ export const MENU_GROUPS: MenuGroup[] = [
         ]
       },
       {
-        title: 'Products',
-        url: '',
-        icon: Icons.package,
-        items: [
-          {
-            title: 'Manufacturers',
-            url: '/manufacturers',
-            icon: Icons.factory,
-            items: [],
-            subjects: PERMISSIONS_CODES.MANUFACTURERS,
-            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-          },
-          {
-            title: 'Commodities',
-            url: '/commodities',
-            icon: Icons.shapes,
-            items: [],
-            subjects: PERMISSIONS_CODES.COMMODITIES,
-            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-          },
-          {
-            title: 'Item Master',
-            url: '/item-masters',
-            icon: Icons.barcode,
-            items: [],
-            subjects: PERMISSIONS_CODES.ITEM_MASTERS,
-            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-          }
-        ]
+        title: 'Item Master',
+        url: '/item-masters',
+        icon: Icons.barcode,
+        items: [],
+        subjects: PERMISSIONS_CODES.ITEM_MASTERS,
+        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
       },
       {
         title: 'Warehouse',

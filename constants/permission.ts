@@ -7,7 +7,9 @@ export const PERMISSIONS_ALLOWED_ACTIONS = {
   DELETE: 'delete',
   RESTORE: 'restore',
   IMPORT: 'import',
-  EXPORT: 'export'
+  EXPORT: 'export',
+  SYNC_TO_SAP: 'sync to sap',
+  SYNC_FROM_SAP: 'sync from sap'
 } as const
 
 export const PERMISSIONS_CODES = {
@@ -18,7 +20,6 @@ export const PERMISSIONS_CODES = {
 
   //* parents, one per sidebar dropdown, they only group their modules
   BP_MASTER: 'p-bp-master',
-  PRODUCTS: 'p-products',
   WAREHOUSE: 'p-warehouse',
   INVENTORY: 'p-inventory',
   PROJECT: 'p-project',
@@ -31,8 +32,6 @@ export const PERMISSIONS_CODES = {
   PROCESS_ZONES: 'p-process-zones',
   PROJECT_CATEGORIES: 'p-project-categories',
   CUSTOMER_PROJECTS: 'p-customer-projects',
-  MANUFACTURERS: 'p-manufacturers',
-  COMMODITIES: 'p-commodities',
   ITEM_MASTERS: 'p-item-masters',
   TEST: 'p-test'
 } as const
@@ -94,40 +93,13 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
   },
   {
-    code: PERMISSIONS_CODES['PRODUCTS'],
-    name: 'Products',
-    description: 'Products Modules',
-    isParent: true,
-    parentCode: null,
-    isSystem: true,
-    allowedActions: []
-  },
-  {
-    code: PERMISSIONS_CODES['MANUFACTURERS'],
-    name: 'Manufacturers',
-    description: 'Manufacturers Module',
-    isParent: false,
-    parentCode: PERMISSIONS_CODES['PRODUCTS'],
-    isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
-  },
-  {
-    code: PERMISSIONS_CODES['COMMODITIES'],
-    name: 'Commodities',
-    description: 'Commodities Module',
-    isParent: false,
-    parentCode: PERMISSIONS_CODES['PRODUCTS'],
-    isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
-  },
-  {
     code: PERMISSIONS_CODES['ITEM_MASTERS'],
     name: 'Item Masters',
     description: 'Item Masters Module',
     isParent: false,
-    parentCode: PERMISSIONS_CODES['PRODUCTS'],
+    parentCode: null,
     isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export', 'sync to sap', 'sync from sap']
   },
   {
     code: PERMISSIONS_CODES['WAREHOUSE'],

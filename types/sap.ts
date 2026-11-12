@@ -124,6 +124,7 @@ export type SapItem = {
   CreateTime?: string | null
   UpdateDate?: string | null
   UpdateTime?: string | null
+  U_Portal_Sync?: 'Y' | 'N'
 }
 
 export type SapItemBody = Partial<SapItem>

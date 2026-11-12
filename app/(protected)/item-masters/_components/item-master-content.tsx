@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ColumnDef } from '@tanstack/react-table'
 import { useAction } from 'next-safe-action/hooks'
@@ -31,11 +31,12 @@ import { DEFAULT_TABLE_INITIAL_STATE } from '@/constants/data-table'
 import Header from '@/components/header'
 import { TooltipWrapper } from '@/components/tooltip-wrapper'
 import ContentWrapper from '@/components/content-wrapper'
-import { deleteItemMaster, ItemMasterWithRelations, restoreItemMaster } from '@/actions/item-master'
+import { deleteItemMaster, ItemMasterRow, restoreItemMaster } from '@/actions/item-master'
 import AlertModal from '@/components/alert-modal'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { FilterOption } from '@/types/data-table'
-import RelationLink from '@/components/relation-link'
+import SapSyncStatusBadge from '@/components/sap-sync-status-badge'
+import { SAP_SYNC_STATUS_OPTIONS } from '@/constants/sap-sync'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import CanView from '@/components/rbac/can-view'
 import { formatDate } from '@/lib/utils'
@@ -44,13 +45,19 @@ import DataTableColumnFilterWrapper from '@/components/data-table/data-table-col
 import DataTableShowDeletedToggle from '@/components/data-table/data-table-show-deleted-toggle'
 import DataTableRefreshButton from '@/components/data-table/data-table-refresh-button'
 import DataTableExportButton from '@/components/data-table/data-table-export-button'
+import { Checkbox } from '@/components/ui/checkbox'
 import ItemMasterThumbnail from './item-master-thumbnail'
+import ItemMasterSyncFromSap from './item-master-sync-from-sap'
+import ItemMasterSyncToSap from './item-master-sync-to-sap'
 
-type ItemMasterContentProps = { manufacturerOptions: FilterOption[]; commodityOptions: FilterOption[] }
+//* only live rows not yet in sap can be pushed
+const isSyncableRow = (row: ItemMasterRow) => !row.deletedAt && row.syncStatus !== 'SYNCED'
+
+type ItemMasterContentProps = { manufacturerOptions: FilterOption[]; itemGroupOptions: FilterOption[]; userCode: number | null }
 
 const DATA_TABLE_UNIQUE_KEY = 'item-masters'
 
-export default function ItemMasterContent({ manufacturerOptions, commodityOptions }: ItemMasterContentProps) {
+export default function ItemMasterContent({ manufacturerOptions, itemGroupOptions, userCode }: ItemMasterContentProps) {
   const router = useRouter()
 
   const [isExporting, setIsExporting] = useState(false)
@@ -58,55 +65,80 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
   const deleteConfirm = useConfirmAction<{ code: string }>()
   const restoreConfirm = useConfirmAction<{ code: string }>()
 
-  const columns: ColumnDef<ItemMasterWithRelations>[] = [
+  //* the picked rows by id, kept across pages for sync to sap
+  const [selectedItems, setSelectedItems] = useState<Record<string, { id: string; ItemCode: string }>>({})
+
+  const columns: ColumnDef<ItemMasterRow>[] = [
+    {
+      id: 'select',
+      enableSorting: false,
+      enableHiding: false,
+      size: 44,
+      minSize: 44,
+      maxSize: 44,
+      header: ({ table }) => (
+        <div className='flex justify-center'>
+          <Checkbox
+            aria-label='Select all syncable rows on this page'
+            checked={table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected()}
+            onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+          />
+        </div>
+      ),
+      cell: ({ row }) =>
+        row.getCanSelect() ? (
+          <div className='flex justify-center'>
+            <Checkbox aria-label='Select row' checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} />
+          </div>
+        ) : null,
+      meta: { title: 'Select' }
+    },
     {
       accessorKey: 'thumbnail',
       enableSorting: false,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Thumbnail' />,
-      cell: ({ row: { original: data } }) => <ItemMasterThumbnail id={data.thumbnail} alt={data.code} />,
+      cell: ({ row: { original: data } }) => <ItemMasterThumbnail id={data.thumbnail} alt={data.ItemCode} />,
       meta: { title: 'Thumbnail' }
     },
     {
-      accessorKey: 'code',
+      accessorKey: 'ItemCode',
       header: ({ column }) => <DataTableColumnHeader column={column} title='MFG P/N' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.code} highlight={table.getState().globalFilter} />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.ItemCode} highlight={table.getState().globalFilter} />,
       meta: { title: 'MFG P/N' }
     },
     {
-      accessorKey: 'description',
+      accessorKey: 'ItemName',
       header: ({ column }) => <DataTableColumnHeader column={column} title='Description' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.description} highlight={table.getState().globalFilter} />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.ItemName} highlight={table.getState().globalFilter} />,
       meta: { title: 'Description' }
     },
     {
-      accessorKey: 'manufacturerCode',
+      accessorKey: 'FirmName',
       filterFn: multiSelectFilterFn,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Manufacturer' />,
-      cell: ({ row: { original: data } }) => {
-        if (!data.manufacturer) return '—'
-
-        return (
-          <RelationLink href={`/manufacturers/${data.manufacturer.code}/view`}>
-            <DataTableTextCell value={`${data.manufacturer.code} - ${data.manufacturer.name}`} highlight={table.getState().globalFilter} />
-          </RelationLink>
-        )
-      },
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.FirmName} highlight={table.getState().globalFilter} />,
       meta: { title: 'Manufacturer', options: manufacturerOptions }
     },
     {
-      accessorKey: 'commodityCode',
+      accessorKey: 'ItmsGrpNam',
       filterFn: multiSelectFilterFn,
-      header: ({ column }) => <DataTableColumnHeader column={column} title='Commodity' />,
-      cell: ({ row: { original: data } }) => {
-        if (!data.commodity) return '—'
-
-        return (
-          <RelationLink href={`/commodities/${data.commodity.code}/view`}>
-            <DataTableTextCell value={`${data.commodity.code} - ${data.commodity.name}`} highlight={table.getState().globalFilter} />
-          </RelationLink>
-        )
-      },
-      meta: { title: 'Commodity', options: commodityOptions }
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Group' />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.ItmsGrpNam} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Group', options: itemGroupOptions }
+    },
+    {
+      accessorKey: 'syncStatus',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Sync Status' />,
+      cell: ({ row: { original: data } }) => <SapSyncStatusBadge status={data.syncStatus} syncError={data.syncError} />,
+      meta: { title: 'Sync Status', options: SAP_SYNC_STATUS_OPTIONS }
+    },
+    {
+      accessorKey: 'syncedAt',
+      filterFn: dateFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Synced At' />,
+      cell: ({ row: { original: data } }) => <DataTableDateCell value={data.syncedAt} />,
+      meta: { title: 'Synced At' }
     },
     {
       accessorKey: 'notes',
@@ -155,9 +187,10 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
       minSize: 140,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Actions' className='text-center' />,
       cell: ({ row: { original } }) => {
-        const { code, deletedAt, deletedBy } = original
+        const { ItemCode: code, deletedAt, deletedBy, syncStatus } = original
 
         const isSoftDeleted = deletedAt && deletedBy
+        const isSynced = syncStatus === 'SYNCED'
 
         return (
           <DataTableActionsCellWrapper>
@@ -179,13 +212,15 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
                   </TooltipWrapper>
                 </CanView>
 
-                <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                  <TooltipWrapper label='Delete'>
-                    <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code })}>
-                      <Icons.trash className='text-destructive size-4' />
-                    </Button>
-                  </TooltipWrapper>
-                </CanView>
+                {!isSynced && (
+                  <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
+                )}
               </>
             ) : (
               <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.RESTORE}>
@@ -204,9 +239,39 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
 
   const { table, params, setData, setRowCount, isShowDeleted, setIsShowDeleted, refreshKey, refetch, refreshTable } = useDataTableServer({
     columns,
-    initialState: { ...DEFAULT_TABLE_INITIAL_STATE, columnVisibility: { notes: false } },
-    getRowId: (row) => row.id
+    initialState: {
+      ...DEFAULT_TABLE_INITIAL_STATE,
+      columnPinning: { ...DEFAULT_TABLE_INITIAL_STATE.columnPinning, left: ['select'] },
+      columnVisibility: { notes: false }
+    },
+    getRowId: (row) => row.id,
+    enableRowSelection: (row) => isSyncableRow(row.original)
   })
+
+  //* rows on other pages aren't loaded, so their codes come from the earlier pick
+  const rowSelection = table.getState().rowSelection
+  const visibleRows = table.getRowModel().rows
+
+  const itemsToSync = Object.keys(rowSelection)
+    .filter((id) => rowSelection[id])
+    .map((id) => {
+      const row = visibleRows.find((r) => r.id === id)?.original
+      return row ? { id: row.id, ItemCode: row.ItemCode } : selectedItems[id]
+    })
+    .filter(Boolean)
+
+  const itemsToSyncKey = itemsToSync.map((item) => item.id).join(',')
+
+  //* remember the codes of picked rows before the page changes
+  useEffect(() => {
+    setSelectedItems((prev) => Object.fromEntries(itemsToSync.map((item) => [item.id, prev[item.id] ?? item])))
+  }, [itemsToSyncKey])
+
+  const handleSynced = () => {
+    table.resetRowSelection()
+    setSelectedItems({})
+    refetch()
+  }
 
   const dataTableItemMastersSvr = useDataTableItemMastersSvr(params, { setData, setRowCount }, [refreshKey])
   const deleteItemMasterAction = useAction(deleteItemMaster)
@@ -219,7 +284,7 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
     const columnIds = table
       .getVisibleLeafColumns()
       .map((column) => column.id)
-      .filter((id) => id !== 'actions')
+      .filter((id) => id !== 'actions' && id !== 'select')
 
     if (columnIds.length === 0) throw { message: 'No columns available to export!', expectedError: true }
 
@@ -269,11 +334,11 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
     deleteConfirm.close()
 
     toast.promise(deleteItemMasterAction.executeAsync({ code }), {
-      loading: 'Deleting item...',
+      loading: 'Deleting item master...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to delete item!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to delete item master!', unExpectedError: true }
 
         if (!result.error) {
           refetch()
@@ -297,11 +362,11 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
     restoreConfirm.close()
 
     toast.promise(restoreItemMasterAction.executeAsync({ code }), {
-      loading: 'Restoring item...',
+      loading: 'Restoring item master...',
       success: (response) => {
         const result = response?.data
 
-        if (!response || !result) throw { message: 'Failed to restore item!', unExpectedError: true }
+        if (!response || !result) throw { message: 'Failed to restore item master!', unExpectedError: true }
 
         if (!result.error) {
           refetch()
@@ -319,12 +384,20 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
 
   return (
     <div className='flex h-full w-full flex-1 flex-col gap-5'>
-      <Header title='Item Master' description='Manage your items, their manufacturer, commodity and thumbnail'>
+      <Header title='Item Master' description='Manage your items and their link with SAP'>
         <div className='flex w-full flex-wrap items-center justify-center gap-2 lg:ml-auto lg:w-auto lg:justify-end'>
           {/* //* the paging rides in the header on a phone, its own row once space runs out */}
           <div className='order-last flex w-full justify-center lg:hidden'>
             <DataTablePagination table={table} isServerSide isCompact />
           </div>
+
+          <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.SYNC_TO_SAP}>
+            <ItemMasterSyncToSap items={itemsToSync} userCode={userCode} onSynced={handleSynced} />
+          </CanView>
+
+          <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.SYNC_FROM_SAP}>
+            <ItemMasterSyncFromSap userCode={userCode} onSynced={handleSynced} />
+          </CanView>
 
           <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.CREATE}>
             <TooltipWrapper label='Add Item'>
@@ -355,8 +428,9 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
           <DataTableToolbar>
             <DataTableColumnFilterWrapper>
               <DataTableGlobalSearch table={table} isLoading={isLoading} />
-              <DataTableColumnFilter column={table.getColumn('manufacturerCode')} title='Manufacturer' isLoading={isLoading} />
-              <DataTableColumnFilter column={table.getColumn('commodityCode')} title='Commodity' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('FirmName')} title='Manufacturer' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('ItmsGrpNam')} title='Group' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('syncStatus')} title='Sync Status' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={isLoading} />
@@ -376,7 +450,7 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
       <AlertModal
         isOpen={deleteConfirm.isOpen}
         title='Are you sure?'
-        description={`Are you sure you want to delete this item${deleteConfirm?.target?.code ? ` "${deleteConfirm.target.code}"` : ''}?`}
+        description={`Are you sure you want to delete this item master${deleteConfirm?.target?.code ? ` "${deleteConfirm.target.code}"` : ''}?`}
         onConfirm={handleConfirmDelete}
         onConfirmText='Delete'
         onCancel={deleteConfirm.close}
@@ -385,7 +459,7 @@ export default function ItemMasterContent({ manufacturerOptions, commodityOption
       <AlertModal
         isOpen={restoreConfirm.isOpen}
         title='Are you sure?'
-        description={`Are you sure you want to restore this item${restoreConfirm?.target?.code ? ` "${restoreConfirm.target.code}"` : ''}?`}
+        description={`Are you sure you want to restore this item master${restoreConfirm?.target?.code ? ` "${restoreConfirm.target.code}"` : ''}?`}
         onConfirm={handleConfirmRestore}
         onConfirmText='Restore'
         onCancel={restoreConfirm.close}

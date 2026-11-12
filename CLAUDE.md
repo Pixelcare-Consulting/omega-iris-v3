@@ -189,6 +189,19 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 - **Deletes are permanent** for both attachments and links, so neither model has `deletedAt`. `deleteItem` only soft deletes, so an item's attachments survive for restore.
 - **Changing storage.** `pnpm files:migrate --from=<disk> --to=<disk>`, any two disks, either direction. See [docs/file-attachment-migration.md](docs/file-attachment-migration.md).
 
+## SAP sync
+
+The item master is the reference module. Its sync actions live in [actions/item-master-sync.ts](actions/item-master-sync.ts). Copy that shape when another model syncs with SAP.
+
+- **Calling SAP.** Go through `sapFetch(dbCode, '<endpoint key>', opts)` in [lib/sap/service-layer.ts](lib/sap/service-layer.ts), with keys typed in [lib/sap/endpoints.ts](lib/sap/endpoints.ts). It queues calls per database, retries once on a dead session, and returns `{ ok, status, message, data }` rather than throwing. The server runs Service Layer `/b1s/v2`, where `error.message` is a plain string. `toSapErrorMessage` reads both that and the v1 `{ value }` shape.
+- **Field names.** PascalCase fields map to SAP (`ItemCode`, `FirmCode`, `ItmsGrpNam`). camelCase fields are portal only (`notes`, `thumbnail`, `isActive`). A pull never writes a camelCase field.
+- **Row status.** Every synced model uses the one `SapSyncStatus` enum (`PENDING`, `SYNCED`, `FAILED`) plus `syncedAt` and `syncError`. A `SYNCED` row locks its SAP fields. Users change them in SAP and the next pull brings them back. Items that leave SAP stay `SYNCED`, on purpose.
+- **Last sync point.** One `SapSyncState` row per `dbCode` + key, with the keys in `SAP_SYNC_KEYS` ([constants/sap-sync.ts](constants/sap-sync.ts)). Add a key there for each new direction. `startSapSyncRun` marks it `RUNNING`. `completeSapSyncRun` sets `lastSyncAt` to the run's start time, and only for the `RUNNING` run with the same start. There is no lock. A closed tab leaves `RUNNING`, and the next run takes over.
+- **Pull.** Only changed rows, using the standard API. The filter is `U_Portal_Sync eq 'Y'` plus `toChangedSinceFilter(since)` from [lib/sap/sync.ts](lib/sap/sync.ts), where `since` is `lastSyncAt` minus `SYNC_LOOKBACK_DAYS` (default 2). The client walks pages of `SAP_SYNC_FROM_PAGE_SIZE` (1000) through `useBatchRun`. It loads the SAP lookups once and sends them with every page as `metaData`. One failed page fails the run, so the next run repeats the same window.
+- **Push.** The client sends `SAP_SYNC_TO_CHUNK_SIZE` (20) ids per call. The server reloads each row, checks required fields, creates it in SAP, and returns a `BatchStepResult`. Status writes use `updateMany` with a condition (`syncStatus not SYNCED`, same `ItemCode`), so a race never flips a synced row back or links a renamed one.
+- **UI pieces.** `SapSyncModal`, `BatchProgress`, `BatchResult`, `BatchErrorTable`, `useBatchRun` and `useLastBatchResult` are generic on purpose. Imports will reuse them.
+- **Sync permissions.** `sync to sap` and `sync from sap` are actions on the module's permission. Any role can hold them, but in practice only Omega admins do.
+
 ## Superpowers plugin in this repo
 
 The plugin is enabled at user scope and its bootstrap claims skills are mandatory. These instructions take precedence; this section is the deliberate scoping.

@@ -33,6 +33,12 @@ export function toCookieHeader(session: SapAuthCookies) {
   return [session.b1session, session.routeid].filter(Boolean).join('; ')
 }
 
+//* v2 sends the message as a string, v1 as { lang, value }
+export function toSapErrorMessage(sapError: any): string {
+  const message = sapError?.message
+  return typeof message === 'string' ? message : (message?.value ?? '')
+}
+
 //* picks the whole 'NAME=value' part out of each set-cookie line
 function readCookie(setCookie: string[] | undefined, name: string) {
   const line = setCookie?.find((cookie) => cookie.startsWith(`${name}=`))
@@ -96,7 +102,7 @@ export async function sapLogin(companyDb: string, { retries = SAP_LOGIN_RETRIES 
 
     return { session: { b1session, routeid }, sessionTimeout }
   } catch (err: any) {
-    const sapMessage = err?.response?.data?.error?.message?.value
+    const sapMessage = toSapErrorMessage(err?.response?.data?.error)
     const message = sapMessage || (err?.code === 'ECONNABORTED' || err?.code === 'ETIMEDOUT' ? `Connection to SAP timed out (${config.baseUrl}).` : err?.message) // prettier-ignore
 
     logger.error({ companyDb, code: err?.code, status: err?.response?.status }, `[SAP_LOGIN_ERROR]: ${message}`)
