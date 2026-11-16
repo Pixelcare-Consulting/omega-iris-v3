@@ -218,6 +218,8 @@ model Site {
     updatedBy Int?
     deletedBy Int?
 
+    locations Location[]
+
     @@unique([dbCode, code])
     @@unique([dbCode, name])
     @@index([dbCode])
@@ -241,9 +243,49 @@ model ProcessZone {
     updatedBy Int?
     deletedBy Int?
 
+    locations Location[]
+
     @@unique([dbCode, code])
     @@unique([dbCode, name])
     @@index([dbCode])
+    @@index([deletedAt])
+}
+
+enum LocationType {
+    PALLET_RACK
+    BIN
+    PROCESS_ZONE
+}
+
+//* code is built from site, zone, bay, level and rack
+model Location {
+    id              String       @id @default(cuid())
+    dbCode          String
+    code            String
+    name            String
+    siteCode        String
+    processZoneCode String
+    bayCode         String
+    levelCode       String?
+    rackCode        String?
+    type            LocationType? //* optional for now
+    isActive        Boolean      @default(true)
+    isPalletAllowed Boolean      @default(false)
+
+    createdAt DateTime  @default(now())
+    updatedAt DateTime  @default(now()) @updatedAt
+    deletedAt DateTime?
+    createdBy Int?
+    updatedBy Int?
+    deletedBy Int?
+
+    site        Site        @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+    processZone ProcessZone @relation(fields: [dbCode, processZoneCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+    @@unique([dbCode, code])
+    @@index([dbCode])
+    @@index([siteCode])
+    @@index([processZoneCode])
     @@index([deletedAt])
 }
 

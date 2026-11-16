@@ -129,7 +129,14 @@ export const MENU_GROUPS: MenuGroup[] = [
             subjects: PERMISSIONS_CODES.PROCESS_ZONES,
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
-          { title: 'Locations', url: '/locations', icon: Icons.mapPin, items: [] }
+          {
+            title: 'Locations',
+            url: '/locations',
+            icon: Icons.mapPin,
+            items: [],
+            subjects: PERMISSIONS_CODES.LOCATIONS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          }
         ]
       },
       {
@@ -152,7 +159,7 @@ export const MENU_GROUPS: MenuGroup[] = [
         icon: Icons.folderKanban,
         items: [
           {
-            title: 'Category',
+            title: 'Project Categories',
             url: '/project-categories',
             icon: Icons.tags,
             items: [],
@@ -160,7 +167,7 @@ export const MENU_GROUPS: MenuGroup[] = [
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
           {
-            title: 'Customer Project',
+            title: 'Customer Projects',
             url: '/customer-projects',
             icon: Icons.folderOpen,
             items: [],

@@ -30,6 +30,7 @@ export const PERMISSIONS_CODES = {
   ITEMS: 'p-items',
   SITES: 'p-sites',
   PROCESS_ZONES: 'p-process-zones',
+  LOCATIONS: 'p-locations',
   PROJECT_CATEGORIES: 'p-project-categories',
   CUSTOMER_PROJECTS: 'p-customer-projects',
   ITEM_MASTERS: 'p-item-masters',
@@ -123,6 +124,15 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     code: PERMISSIONS_CODES['PROCESS_ZONES'],
     name: 'Process Zones',
     description: 'Process Zones Module',
+    isParent: false,
+    parentCode: PERMISSIONS_CODES['WAREHOUSE'],
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['LOCATIONS'],
+    name: 'Locations',
+    description: 'Locations Module',
     isParent: false,
     parentCode: PERMISSIONS_CODES['WAREHOUSE'],
     isSystem: true,

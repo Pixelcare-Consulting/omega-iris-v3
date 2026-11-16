@@ -13,6 +13,7 @@ import { siteFormSchema } from '@/schema/site'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
+import { FilterOption } from '@/types/data-table'
 
 export async function getSites(dbCode: string | null) {
   if (!dbCode) return []
@@ -21,6 +22,24 @@ export async function getSites(dbCode: string | null) {
     return await db.site.findMany({ where: { dbCode, deletedAt: null, isActive: true }, orderBy: { code: 'asc' } })
   } catch (err: any) {
     logger.error(err, '[GET_SITES_ERROR]:')
+    return []
+  }
+}
+
+//* filter options, inactive ones too so old rows can be found
+export async function getSiteOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const sites = await db.site.findMany({
+      where: { dbCode, deletedAt: null },
+      select: { code: true, name: true },
+      orderBy: { code: 'asc' }
+    })
+
+    return sites.map((site) => ({ label: `${site.code} - ${site.name}`, value: site.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_SITE_OPTIONS_ERROR]:')
     return []
   }
 }
@@ -194,6 +213,12 @@ export const deleteSite = action
       //! the table hides these for system rows, this is the check behind it
       if (site.isSystem) {
         return { status: 403, error: true, message: 'System generated site cannot be deleted!', action: actionTag }
+      }
+
+      const locationCount = await db.location.count({ where: { dbCode, siteCode: site.code, deletedAt: null } })
+
+      if (locationCount > 0) {
+        return { status: 409, error: true, message: 'Site is in use by locations!', action: actionTag }
       }
 
       await db.site.update({ where: { id: site.id }, data: { deletedAt: new Date(), deletedBy: userCode } })

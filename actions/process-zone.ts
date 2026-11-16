@@ -13,6 +13,7 @@ import { processZoneFormSchema } from '@/schema/process-zone'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
+import { FilterOption } from '@/types/data-table'
 
 export async function getProcessZones(dbCode: string | null) {
   if (!dbCode) return []
@@ -21,6 +22,24 @@ export async function getProcessZones(dbCode: string | null) {
     return await db.processZone.findMany({ where: { dbCode, deletedAt: null, isActive: true }, orderBy: { code: 'asc' } })
   } catch (err: any) {
     logger.error(err, '[GET_PROCESS_ZONES_ERROR]:')
+    return []
+  }
+}
+
+//* filter options, inactive ones too so old rows can be found
+export async function getProcessZoneOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const processZones = await db.processZone.findMany({
+      where: { dbCode, deletedAt: null },
+      select: { code: true, name: true },
+      orderBy: { code: 'asc' }
+    })
+
+    return processZones.map((processZone) => ({ label: `${processZone.code} - ${processZone.name}`, value: processZone.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_PROCESS_ZONE_OPTIONS_ERROR]:')
     return []
   }
 }
@@ -194,6 +213,12 @@ export const deleteProcessZone = action
       //! the table hides these for system rows, this is the check behind it
       if (processZone.isSystem) {
         return { status: 403, error: true, message: 'System generated process zone cannot be deleted!', action: actionTag }
+      }
+
+      const locationCount = await db.location.count({ where: { dbCode, processZoneCode: processZone.code, deletedAt: null } })
+
+      if (locationCount > 0) {
+        return { status: 409, error: true, message: 'Process zone is in use by locations!', action: actionTag }
       }
 
       await db.processZone.update({ where: { id: processZone.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
