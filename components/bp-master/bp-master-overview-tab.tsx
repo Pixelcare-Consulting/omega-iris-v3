@@ -1,7 +1,8 @@
 'use client'
 
-import { BpMasterWithRelations } from '@/actions/bp-master'
-import { BP_ADDRESS_TYPES, BP_MASTER_CONFIG, BpMasterType } from '@/constants/bp-master'
+import { BpMasterRow } from '@/actions/bp-master'
+import { BP_MASTER_CONFIG, BpMasterType } from '@/constants/bp-master'
+import { COMPANY_PRIVATE_OPTIONS, toOptionLabel } from '@/constants/business-partner'
 import { Row } from '@/components/row'
 import { Column } from '@/components/column'
 import ContentWrapper from '@/components/content-wrapper'
@@ -10,16 +11,14 @@ import { Separator } from '@/components/ui/separator'
 import ReadOnlyField from '@/components/read-only-field'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/components/record-meta-data'
+import SapSyncStatusBadge from '@/components/sap-sync-status-badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { formatDate } from '@/lib/utils'
 
-type BpMasterOverviewTabProps = { type: BpMasterType; bpMaster: BpMasterWithRelations }
+type BpMasterOverviewTabProps = { type: BpMasterType; bpMaster: BpMasterRow }
 
 export default function BpMasterOverviewTab({ type, bpMaster }: BpMasterOverviewTabProps) {
   const { label } = BP_MASTER_CONFIG[type]
-
-  const billing = bpMaster.addresses.find((a) => a.type === BP_ADDRESS_TYPES.BILLING && a.isDefault)
-  const shipping = bpMaster.addresses.find((a) => a.type === BP_ADDRESS_TYPES.SHIPPING && a.isDefault)
-  const contact = bpMaster.contacts.find((c) => c.isDefault)
 
   return (
     <ContentWrapper className='h-full'>
@@ -31,26 +30,74 @@ export default function BpMasterOverviewTab({ type, bpMaster }: BpMasterOverview
           </Column>
 
           <Column md={6} lg={3}>
-            <ReadOnlyField title='Code' value={bpMaster.code}>
-              <Copy value={bpMaster.code} />
+            <ReadOnlyField title='Code' value={bpMaster.CardCode}>
+              <Copy value={bpMaster.CardCode} />
             </ReadOnlyField>
           </Column>
 
           <Column md={6} lg={9}>
-            <ReadOnlyField title='Name' value={bpMaster.name} />
+            <ReadOnlyField title='Name' value={bpMaster.CardName} />
           </Column>
 
           <Column md={6} lg={4}>
-            <ReadOnlyField title='Default Bill-To' value={billing?.name ?? ''} />
+            <ReadOnlyField title='Group' value={bpMaster.GroupName ?? ''} />
           </Column>
 
           <Column md={6} lg={4}>
-            <ReadOnlyField title='Default Ship-To' value={shipping?.name ?? ''} />
+            <ReadOnlyField title='Currency' value={bpMaster.CurrName ?? bpMaster.CurrCode ?? ''} />
           </Column>
 
           <Column md={6} lg={4}>
-            <ReadOnlyField title='Contact Person' value={contact?.name ?? ''} />
+            <ReadOnlyField title='Payment Terms' value={bpMaster.PymntGroup ?? ''} />
           </Column>
+
+          <Column md={6} lg={4}>
+            <ReadOnlyField title='Account Type' value={bpMaster.AcctType ?? ''} />
+          </Column>
+
+          <Column md={6} lg={4}>
+            <ReadOnlyField title='Type of Business' value={toOptionLabel(COMPANY_PRIVATE_OPTIONS, bpMaster.CmpPrivate)} />
+          </Column>
+
+          <Column md={6} lg={4}>
+            <ReadOnlyField title='Contact Person' value={bpMaster.CntctPrsn ?? ''} />
+          </Column>
+
+          <Column md={6} lg={4}>
+            <ReadOnlyField title='Default Bill-To' value={bpMaster.BillToDef ?? ''} />
+          </Column>
+
+          <Column md={6} lg={4}>
+            <ReadOnlyField title='Default Ship-To' value={bpMaster.ShipToDef ?? ''} />
+          </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Settings' description={`${label}'s setting`} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Active' value={bpMaster.isActive ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='SAP Sync' description={`${label}'s link with SAP`} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Sync Status' value={<SapSyncStatusBadge status={bpMaster.syncStatus} />} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Synced At' value={bpMaster.syncedAt ? formatDate(bpMaster.syncedAt, 'MMM dd, yyyy hh:mm a') : ''} />
+          </Column>
+
+          {bpMaster.syncError && (
+            <Column>
+              <ReadOnlyField title='Last Sync Error' value={bpMaster.syncError} />
+            </Column>
+          )}
 
           <Column>
             <Separator className='mt-3 mb-4' />

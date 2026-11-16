@@ -138,19 +138,6 @@ export default function ItemMasterSyncFromSap({ userCode, onSynced }: ItemMaster
 
   return (
     <>
-      <TooltipWrapper label={lastSyncLabel}>
-        <Badge
-          variant={state?.lastRunStatus === 'FAILED' ? 'soft-red' : state?.lastSyncAt ? 'soft-green' : 'soft-slate'}
-          className='max-w-60 truncate'
-        >
-          {state?.lastSyncAt
-            ? `Synced ${formatDate(new Date(state.lastSyncAt), 'MMM dd, hh:mm a')}`
-            : state?.lastRunStatus === 'FAILED'
-              ? 'Sync failed'
-              : 'Never synced'}
-        </Badge>
-      </TooltipWrapper>
-
       <TooltipWrapper label={isDependencyReady || isDependencyLoading ? 'Sync from SAP' : 'Could not load SAP manufacturers and groups'}>
         <LoadingButton
           type='button'
@@ -162,6 +149,19 @@ export default function ItemMasterSyncFromSap({ userCode, onSynced }: ItemMaster
         >
           <Icons.refreshCw /> Sync from SAP
         </LoadingButton>
+      </TooltipWrapper>
+
+      <TooltipWrapper label={lastSyncLabel}>
+        <Badge
+          variant={state?.lastRunStatus === 'FAILED' ? 'soft-red' : state?.lastSyncAt ? 'soft-green' : 'soft-slate'}
+          className='order-first max-w-60 truncate' //* shows ahead of both sync buttons in the header row
+        >
+          {state?.lastSyncAt
+            ? `Synced ${formatDate(new Date(state.lastSyncAt), 'MMM dd, hh:mm a')}`
+            : state?.lastRunStatus === 'FAILED'
+              ? 'Sync failed'
+              : 'Never synced'}
+        </Badge>
       </TooltipWrapper>
 
       <SapSyncModal

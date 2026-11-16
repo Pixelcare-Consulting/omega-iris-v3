@@ -366,12 +366,31 @@ model SapSyncState {
     @@unique([dbCode, key])
 }
 
-model BpMaster {
-    id     String @id @default(cuid())
-    dbCode String
-    code   String //* C00001, V00001
-    name   String
-    type   String //* C customer, S vendor
+//* customers and vendors, PascalCase fields map to sap
+model BusinessPartner {
+    id       String  @id @default(cuid())
+    dbCode   String
+    isActive Boolean @default(true)
+
+    //* sap fields
+    CardCode   String
+    CardName   String
+    CardType   String //* C customer, S vendor
+    CntctPrsn  String?
+    CurrCode   String?
+    CurrName   String?
+    GroupCode  Int?
+    GroupName  String?
+    GroupNum   Int? //* payment terms
+    PymntGroup String?
+    ShipToDef  String?
+    BillToDef  String?
+    AcctType   String?
+    CmpPrivate String?
+
+    syncStatus SapSyncStatus @default(PENDING)
+    syncedAt   DateTime?
+    syncError  String?
 
     createdAt DateTime  @default(now())
     updatedAt DateTime  @default(now()) @updatedAt
@@ -381,35 +400,40 @@ model BpMaster {
     deletedBy Int?
 
     addresses BpAddress[]
-    contacts  BpContactPerson[]
+    contacts  Contact[]
 
-    @@unique([dbCode, code])
-    @@unique([dbCode, type, name])
+    @@unique([dbCode, CardCode])
     @@index([dbCode])
-    @@index([type])
+    @@index([CardType])
+    @@index([syncStatus])
     @@index([deletedAt])
 }
 
 model BpAddress {
-    id                String  @id @default(cuid())
-    dbCode            String
-    bpCode            String //* parent C00001 / V00001
-    code              String //* A01, one series per bp
-    name              String
-    type              String //* B billing, S shipping
-    isDefault         Boolean @default(false)
-    line1             String?
-    line2             String?
-    line3             String?
-    streetNo          String?
-    buildingFloorRoom String?
-    block             String?
-    city              String?
-    zipCode           String?
-    countryCode       String? //* ISO 2
-    countryName       String?
-    stateCode         String? //* only unique within its country
-    stateName         String?
+    id     String @id @default(cuid())
+    dbCode String
+
+    //* sap fields
+    CardCode          String
+    AddressName       String
+    AddrType          String //* B bill to, S ship to
+    Street            String?
+    Address2          String?
+    Address3          String?
+    StreetNo          String?
+    BuildingFloorRoom String?
+    Block             String?
+    City              String?
+    ZipCode           String?
+    County            String?
+    CountryCode       String?
+    CountryName       String?
+    StateCode         String?
+    StateName         String?
+
+    syncStatus SapSyncStatus @default(PENDING) //* PENDING means sap doesn't have this row
+    syncedAt   DateTime?
+    syncError  String?
 
     //* no soft delete, a removed address is deleted for good
     createdAt DateTime @default(now())
@@ -417,25 +441,31 @@ model BpAddress {
     createdBy Int?
     updatedBy Int?
 
-    bpMaster BpMaster @relation(fields: [dbCode, bpCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+    businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([dbCode, bpCode, code])
-    @@index([dbCode, bpCode])
+    @@unique([dbCode, CardCode, AddressName, AddrType])
+    @@index([CardCode])
 }
 
-model BpContactPerson {
-    id        String  @id @default(cuid())
-    dbCode    String
-    bpCode    String //* parent C00001 / V00001
-    code      String //* CP01, one series per bp
-    name      String
-    isDefault Boolean @default(false)
-    email     String?
-    title     String?
-    position  String?
-    tel1      String?
-    tel2      String?
-    phone     String?
+model Contact {
+    id     String @id @default(cuid())
+    dbCode String
+
+    //* sap fields
+    CardCode    String
+    ContactName String
+    FirstName   String?
+    LastName    String?
+    Title       String?
+    Position    String?
+    Phone1      String?
+    Phone2      String?
+    MobilePhone String?
+    Email       String?
+
+    syncStatus SapSyncStatus @default(PENDING) //* PENDING means sap doesn't have this row
+    syncedAt   DateTime?
+    syncError  String?
 
     //* no soft delete, a removed contact is deleted for good
     createdAt DateTime @default(now())
@@ -443,10 +473,10 @@ model BpContactPerson {
     createdBy Int?
     updatedBy Int?
 
-    bpMaster BpMaster @relation(fields: [dbCode, bpCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+    businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([dbCode, bpCode, code])
-    @@index([dbCode, bpCode])
+    @@unique([dbCode, CardCode, ContactName])
+    @@index([CardCode])
 }
 
 model FileAttachment {

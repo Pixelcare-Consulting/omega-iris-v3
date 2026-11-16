@@ -81,7 +81,9 @@ export function DataTablePagination<TData>({
           )}
         </div>
         <div className='flex items-center space-x-2'>
+          {/* //* type button, so a table inside a form never submits it */}
           <Button
+            type='button'
             aria-label='Go to first page'
             variant='outline'
             className='hidden size-8 p-0 lg:flex'
@@ -91,6 +93,7 @@ export function DataTablePagination<TData>({
             <Icons.doubleLeft className='size-4' aria-hidden='true' />
           </Button>
           <Button
+            type='button'
             aria-label='Go to previous page'
             variant='outline'
             size='icon'
@@ -101,6 +104,7 @@ export function DataTablePagination<TData>({
             <Icons.left className='size-4' aria-hidden='true' />
           </Button>
           <Button
+            type='button'
             aria-label='Go to next page'
             variant='outline'
             size='icon'
@@ -111,6 +115,7 @@ export function DataTablePagination<TData>({
             <Icons.right className='size-4' aria-hidden='true' />
           </Button>
           <Button
+            type='button'
             aria-label='Go to last page'
             variant='outline'
             size='icon'

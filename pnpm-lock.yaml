@@ -74,9 +74,6 @@ importers:
       cn:
         specifier: ^0.3.0
         version: 0.3.3
-      country-state-city:
-        specifier: ^3.2.1
-        version: 3.2.1
       date-fns:
         specifier: ^4.1.0
         version: 4.4.0
@@ -3102,9 +3099,6 @@ packages:
   cors@2.8.6:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
     engines: {node: '>= 0.10'}
-
-  country-state-city@3.2.1:
-    resolution: {integrity: sha512-kxbanqMc6izjhc/EHkGPCTabSPZ2G6eG4/97akAYHJUN4stzzFEvQPZoF8oXDQ+10gM/O/yUmISCR1ZVxyb6EA==}
 
   crc-32@1.2.2:
     resolution: {integrity: sha512-ROmzCKrTnOwybPcJApAA6WBWij23HVfGVNKqqrZpuyZOHqK2CwHSvpGuyt/UNNvaIjEd8X5IFGp4Mh+Ie1IHJQ==}
@@ -8748,8 +8742,6 @@ snapshots:
     dependencies:
       object-assign: 4.1.1
       vary: 1.1.2
-
-  country-state-city@3.2.1: {}
 
   crc-32@1.2.2: {}
 

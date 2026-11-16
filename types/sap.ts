@@ -37,8 +37,12 @@ export type SapBPAddress = {
   AddressName3?: string | null
   AddressType: SapAddressType
   Street?: string | null
+  StreetNo?: string | null
+  BuildingFloorRoom?: string | null
+  Block?: string | null
   City?: string | null
   ZipCode?: string | null
+  County?: string | null
   State?: string | null
   Country?: string | null
   BPCode?: string
@@ -47,6 +51,8 @@ export type SapBPAddress = {
 
 export type SapContactEmployee = {
   Name: string
+  FirstName?: string | null
+  LastName?: string | null
   Title?: string | null
   Position?: string | null
   E_Mail?: string | null
@@ -65,6 +71,9 @@ export type SapBusinessPartner = {
   CardType: SapCardType
   GroupCode: number
   Currency?: string | null
+  PayTermsGrpCode?: number | null
+  U_OMEG_AcctType?: string | null
+  U_Portal_Sync?: 'Y' | 'N'
   FederalTaxID?: string | null
   CompanyPrivate?: SapCompanyPrivate
   SalesPersonCode?: number | null
@@ -97,6 +106,8 @@ export type SapCurrency = { Code: string; Name: string }
 export type SapSalesPerson = { SalesEmployeeCode: number; SalesEmployeeName: string; Active: SapYesNo }
 export type SapCountry = { Code: string; Name: string }
 export type SapState = { Code: string; Name: string; Country: string }
+export type SapPaymentTermsType = { GroupNumber: number; PaymentTermsGroupName: string }
+export type SapUserField = { TableName: string; Name: string; ValidValuesMD?: { Value: string; Description: string }[] }
 export type SapSeries = {
   Series: number
   Name: string

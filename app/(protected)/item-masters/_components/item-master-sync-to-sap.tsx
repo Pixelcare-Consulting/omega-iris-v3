@@ -74,7 +74,7 @@ export default function ItemMasterSyncToSap({ items, userCode, onSynced }: ItemM
   return (
     <>
       <TooltipWrapper label='Sync selected items to SAP'>
-        <LoadingButton type='button' isLoading={status === 'processing'} onClick={modal.onOpen}>
+        <LoadingButton type='button' variant='outline-primary' isLoading={status === 'processing'} onClick={modal.onOpen}>
           <Icons.upload /> Sync {items.length} to SAP
         </LoadingButton>
       </TooltipWrapper>

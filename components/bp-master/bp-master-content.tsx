@@ -1,21 +1,29 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ColumnDef } from '@tanstack/react-table'
 import { useAction } from 'next-safe-action/hooks'
 import { toast } from 'sonner'
 
-import { useDataTableBpMastersSvr } from '@/hooks/safe-actions/bp-master'
+import { useBpMasterLookups, useDataTableBpMastersSvr } from '@/hooks/safe-actions/bp-master'
 import { DataTable } from '@/components/data-table/data-table'
-import { DataTableActionsCellWrapper, DataTableDateCell, DataTableTextCell } from '@/components/data-table/data-table-column-cell'
+import {
+  DataTableActionsCellWrapper,
+  DataTableBooleanCell,
+  DataTableDateCell,
+  DataTableTextCell
+} from '@/components/data-table/data-table-column-cell'
 import { DataTableColumnHeader } from '@/components/data-table/data-table-column-header'
 import DataTableContainer from '@/components/data-table/data-table-container'
 import DataTableGlobalSearch from '@/components/data-table/data-table-global-search'
 import DataTableToolbar from '@/components/data-table/data-table-toolbar'
 import { DataTableViewOptions } from '@/components/data-table/data-table-view-options'
+import DataTableColumnFilter from '@/components/data-table/data-table-faceted-filter'
 import { Icons } from '@/components/icons'
 import { Button } from '@/components/ui/button'
-import { dateFilterFn, getSoftDeletedRowClassName } from '@/lib/data-table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { dateFilterFn, getSoftDeletedRowClassName, multiSelectFilterFn } from '@/lib/data-table'
 import { DataTableActionsOptions } from '@/components/data-table/data-table-options'
 import { DataTablePagination } from '@/components/data-table/data-table-pagination'
 import DataTableColumnDateFilter from '@/components/data-table/data-table-column-date-filter'
@@ -25,11 +33,13 @@ import Header from '@/components/header'
 import { TooltipWrapper } from '@/components/tooltip-wrapper'
 import ContentWrapper from '@/components/content-wrapper'
 import { deleteBpMaster, getDataTableBpMastersSvrClient, restoreBpMaster } from '@/actions/bp-master'
-import { BpMaster } from '@/prisma/generated/client'
+import { BusinessPartner } from '@/prisma/generated/client'
 import AlertModal from '@/components/alert-modal'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { PERMISSIONS_ALLOWED_ACTIONS } from '@/constants/permission'
 import { BP_MASTER_CONFIG, BpMasterType } from '@/constants/bp-master'
+import { SAP_SYNC_STATUS_OPTIONS } from '@/constants/sap-sync'
+import SapSyncStatusBadge from '@/components/sap-sync-status-badge'
 import CanView from '@/components/rbac/can-view'
 import { formatDate } from '@/lib/utils'
 import { exportToExcel } from '@/lib/xlsx'
@@ -37,31 +47,136 @@ import DataTableColumnFilterWrapper from '@/components/data-table/data-table-col
 import DataTableShowDeletedToggle from '@/components/data-table/data-table-show-deleted-toggle'
 import DataTableRefreshButton from '@/components/data-table/data-table-refresh-button'
 import DataTableExportButton from '@/components/data-table/data-table-export-button'
+import BpMasterSyncFromSap from './bp-master-sync-from-sap'
+import BpMasterSyncToSap from './bp-master-sync-to-sap'
 
-type BpMasterContentProps = { type: BpMasterType }
+type BpMasterContentProps = { type: BpMasterType; userCode: number | null }
 
-export default function BpMasterContent({ type }: BpMasterContentProps) {
+const isSyncableRow = (row: BusinessPartner) => !row.deletedAt && row.syncStatus !== 'SYNCED'
+
+const ACTIVE_OPTIONS = [
+  { label: 'Yes', value: 'Yes' },
+  { label: 'No', value: 'No' }
+]
+
+export default function BpMasterContent({ type, userCode }: BpMasterContentProps) {
   const router = useRouter()
 
-  const { label, pluralLabel, route, permission, description } = BP_MASTER_CONFIG[type]
+  const { label, pluralLabel, route, permission, description, canCreate } = BP_MASTER_CONFIG[type]
 
   const DATA_TABLE_UNIQUE_KEY = pluralLabel.toLowerCase()
 
   const deleteConfirm = useConfirmAction<{ code: string; name: string }>()
   const restoreConfirm = useConfirmAction<{ code: string; name: string }>()
 
-  const columns: ColumnDef<BpMaster>[] = [
+  //* loaded once, the sync from sap button sends them with every page
+  const lookups = useBpMasterLookups(type)
+
+  //* the table filters on the saved names, so the options carry names
+  const groupOptions = useMemo(() => lookups.data.groups.map((g) => ({ value: g.Name, label: g.Name })), [lookups.data.groups])
+  const currencyOptions = useMemo(() => lookups.data.currencies.map((c) => ({ value: c.Name, label: c.Name })), [lookups.data.currencies])
+
+  //* the picked rows by id, kept across pages for sync to sap
+  const [selectedItems, setSelectedItems] = useState<Record<string, { id: string; CardCode: string }>>({})
+
+  const toUrl = (code: string, suffix = '') => `${route}/${encodeURIComponent(code)}${suffix}`
+
+  const columns: ColumnDef<BusinessPartner>[] = [
+    ...(canCreate
+      ? [
+          {
+            id: 'select',
+            enableSorting: false,
+            enableHiding: false,
+            size: 44,
+            minSize: 44,
+            maxSize: 44,
+            header: ({ table }) => (
+              <div className='flex justify-center'>
+                <Checkbox
+                  aria-label='Select all syncable rows on this page'
+                  checked={table.getIsSomePageRowsSelected() ? 'indeterminate' : table.getIsAllPageRowsSelected()}
+                  onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
+                />
+              </div>
+            ),
+            cell: ({ row }) =>
+              row.getCanSelect() ? (
+                <div className='flex justify-center'>
+                  <Checkbox
+                    aria-label='Select row'
+                    checked={row.getIsSelected()}
+                    onCheckedChange={(value) => row.toggleSelected(!!value)}
+                  />
+                </div>
+              ) : null,
+            meta: { title: 'Select' }
+          } satisfies ColumnDef<BusinessPartner>
+        ]
+      : []),
     {
-      accessorKey: 'code',
+      accessorKey: 'CardCode',
       header: ({ column }) => <DataTableColumnHeader column={column} title='Code' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.code} highlight={table.getState().globalFilter} />,
-      meta: { title: 'Code', exportValue: (row) => row.code }
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.CardCode} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Code', exportValue: (row) => row.CardCode }
     },
     {
-      accessorKey: 'name',
+      accessorKey: 'CardName',
       header: ({ column }) => <DataTableColumnHeader column={column} title='Name' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.name} highlight={table.getState().globalFilter} />,
-      meta: { title: 'Name', exportValue: (row) => row.name }
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.CardName} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Name', exportValue: (row) => row.CardName }
+    },
+    {
+      accessorKey: 'GroupName',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Group' />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.GroupName} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Group', options: groupOptions, exportValue: (row) => row.GroupName }
+    },
+    {
+      accessorKey: 'CurrName',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Currency' />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.CurrName} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Currency', options: currencyOptions, exportValue: (row) => row.CurrName }
+    },
+    {
+      accessorKey: 'PymntGroup',
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Payment Terms' />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.PymntGroup} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Payment Terms', exportValue: (row) => row.PymntGroup }
+    },
+    {
+      accessorKey: 'syncStatus',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Sync Status' />,
+      cell: ({ row: { original: data } }) => <SapSyncStatusBadge status={data.syncStatus} syncError={data.syncError} />,
+      meta: {
+        title: 'Sync Status',
+        options: SAP_SYNC_STATUS_OPTIONS,
+        exportValue: (row) => SAP_SYNC_STATUS_OPTIONS.find((o) => o.value === row.syncStatus)?.label ?? row.syncStatus
+      }
+    },
+    {
+      accessorKey: 'syncedAt',
+      filterFn: dateFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Synced At' />,
+      cell: ({ row: { original: data } }) => <DataTableDateCell value={data.syncedAt} />,
+      meta: { title: 'Synced At', exportValue: (row) => (row.syncedAt ? formatDate(row.syncedAt) : '') }
+    },
+    {
+      accessorFn: (row) => (row?.isActive ? 'Yes' : 'No'),
+      accessorKey: 'isActive',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Active' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isActive}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: { title: 'Active', options: ACTIVE_OPTIONS, exportValue: (row) => (row.isActive ? 'Yes' : 'No') }
     },
     {
       accessorKey: 'createdAt',
@@ -84,9 +199,10 @@ export default function BpMasterContent({ type }: BpMasterContentProps) {
       minSize: 140,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Actions' className='text-center' />,
       cell: ({ row: { original } }) => {
-        const { code, name, deletedAt, deletedBy } = original
+        const { CardCode: code, CardName: name, deletedAt, deletedBy, syncStatus } = original
 
         const isSoftDeleted = deletedAt && deletedBy
+        const isSynced = syncStatus === 'SYNCED'
 
         return (
           <DataTableActionsCellWrapper>
@@ -94,27 +210,31 @@ export default function BpMasterContent({ type }: BpMasterContentProps) {
               <>
                 <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.VIEW}>
                   <TooltipWrapper label='View'>
-                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`${route}/${code}/view`)}>
+                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(toUrl(code, '/view'))}>
                       <Icons.eye className='text-muted-foreground size-4' />
                     </Button>
                   </TooltipWrapper>
                 </CanView>
 
-                <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <TooltipWrapper label='Edit'>
-                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`${route}/${code}`)}>
-                      <Icons.pencil className='text-muted-foreground size-4' />
-                    </Button>
-                  </TooltipWrapper>
-                </CanView>
+                {canCreate && (
+                  <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                    <TooltipWrapper label='Edit'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => router.push(toUrl(code))}>
+                        <Icons.pencil className='text-muted-foreground size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
+                )}
 
-                <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                  <TooltipWrapper label='Delete'>
-                    <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
-                      <Icons.trash className='text-destructive size-4' />
-                    </Button>
-                  </TooltipWrapper>
-                </CanView>
+                {canCreate && !isSynced && (
+                  <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
+                )}
               </>
             ) : (
               <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.RESTORE}>
@@ -133,8 +253,12 @@ export default function BpMasterContent({ type }: BpMasterContentProps) {
 
   const { table, params, setData, setRowCount, isShowDeleted, setIsShowDeleted, refreshKey, refetch, refreshTable } = useDataTableServer({
     columns,
-    initialState: DEFAULT_TABLE_INITIAL_STATE,
-    getRowId: (row) => row.id
+    initialState: {
+      ...DEFAULT_TABLE_INITIAL_STATE,
+      ...(canCreate && { columnPinning: { ...DEFAULT_TABLE_INITIAL_STATE.columnPinning, left: ['select'] } })
+    },
+    getRowId: (row) => row.id,
+    enableRowSelection: (row) => canCreate && isSyncableRow(row.original)
   })
 
   const tableParams = { ...params, type }
@@ -145,6 +269,31 @@ export default function BpMasterContent({ type }: BpMasterContentProps) {
   const restoreBpMasterAction = useAction(restoreBpMaster)
 
   const isLoading = dataTableBpMastersSvr.isLoading
+
+  //* rows on other pages aren't loaded, so their codes come from the earlier pick
+  const rowSelection = table.getState().rowSelection
+  const visibleRows = table.getRowModel().rows
+
+  const itemsToSync = Object.keys(rowSelection)
+    .filter((id) => rowSelection[id])
+    .map((id) => {
+      const row = visibleRows.find((r) => r.id === id)?.original
+      return row ? { id: row.id, CardCode: row.CardCode } : selectedItems[id]
+    })
+    .filter(Boolean)
+
+  const itemsToSyncKey = itemsToSync.map((item) => item.id).join(',')
+
+  //* remember the codes of picked rows before the page changes
+  useEffect(() => {
+    setSelectedItems((prev) => Object.fromEntries(itemsToSync.map((item) => [item.id, prev[item.id] ?? item])))
+  }, [itemsToSyncKey])
+
+  const handleSynced = () => {
+    table.resetRowSelection()
+    setSelectedItems({})
+    refetch()
+  }
 
   const handleExport = async () => {
     const visibleColumns = table.getVisibleLeafColumns().filter((column) => column.id !== 'actions' && column.columnDef.meta?.exportValue)
@@ -230,13 +379,25 @@ export default function BpMasterContent({ type }: BpMasterContentProps) {
             <DataTablePagination table={table} isServerSide isCompact />
           </div>
 
-          <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.CREATE}>
-            <TooltipWrapper label={`Add ${label}`}>
-              <Button type='button' onClick={() => router.push(`${route}/add`)}>
-                <Icons.plus /> Add {label}
-              </Button>
-            </TooltipWrapper>
+          {canCreate && (
+            <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.SYNC_TO_SAP}>
+              <BpMasterSyncToSap type={type} items={itemsToSync} userCode={userCode} onSynced={handleSynced} />
+            </CanView>
+          )}
+
+          <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.SYNC_FROM_SAP}>
+            <BpMasterSyncFromSap type={type} lookups={lookups} userCode={userCode} onSynced={handleSynced} />
           </CanView>
+
+          {canCreate && (
+            <CanView subject={permission} action={PERMISSIONS_ALLOWED_ACTIONS.CREATE}>
+              <TooltipWrapper label={`Add ${label}`}>
+                <Button type='button' onClick={() => router.push(`${route}/add`)}>
+                  <Icons.plus /> Add {label}
+                </Button>
+              </TooltipWrapper>
+            </CanView>
+          )}
 
           <div className='flex shrink-0 items-center gap-2'>
             <DataTableRefreshButton onRefresh={refreshTable} isLoading={isLoading} />
@@ -259,6 +420,10 @@ export default function BpMasterContent({ type }: BpMasterContentProps) {
           <DataTableToolbar>
             <DataTableColumnFilterWrapper>
               <DataTableGlobalSearch table={table} isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('GroupName')} title='Group' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('CurrName')} title='Currency' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('syncStatus')} title='Sync Status' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={isLoading} />
             </DataTableColumnFilterWrapper>

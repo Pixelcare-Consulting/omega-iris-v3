@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Icons } from '@/components/icons'
 import { TooltipWrapper } from '@/components/tooltip-wrapper'
+import SapSyncStatusBadge from '@/components/sap-sync-status-badge'
+import type { SapSyncStatus } from '@/prisma/generated/enums'
 
 type BpRecordPagerProps = {
   title: string
-  code?: string | null
+  syncStatus?: SapSyncStatus | null
   position: number
   count: number
   isDefault: boolean
@@ -21,7 +23,7 @@ type BpRecordPagerProps = {
 
 export default function BpRecordPager({
   title,
-  code,
+  syncStatus,
   position,
   count,
   isDefault,
@@ -37,7 +39,7 @@ export default function BpRecordPager({
     <div className='flex flex-wrap items-center gap-3'>
       <div className='flex items-center gap-2'>
         <h3 className='text-base font-semibold'>{hasRecord ? `${title} #${position + 1}` : title}</h3>
-        {hasRecord && code && <Badge variant='outline'>{code}</Badge>}
+        {hasRecord && syncStatus && <SapSyncStatusBadge status={syncStatus} />}
         {hasRecord && isDefault && <Badge variant='soft-blue'>Default</Badge>}
       </div>
 

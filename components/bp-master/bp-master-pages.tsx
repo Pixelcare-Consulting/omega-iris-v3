@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation'
 
 import { getCurrentUserWithAbility } from '@/actions/user'
 import { getBpMasterByCode } from '@/actions/bp-master'
-import { getCountryOptions } from '@/actions/country-state'
 import { getCurrentDbCode } from '@/lib/sap/access'
 import { authorizePage } from '@/lib/authorization'
 import ContentContainer from '@/app/(protected)/_components/content-container'
@@ -14,6 +13,15 @@ import ViewBpMaster from './view-bp-master'
 
 type BpMasterPageProps = { type: BpMasterType; params: Promise<{ code: string }> }
 
+//* the route param of an encoded code, a bad escape falls back to the raw value
+function toCardCode(code: string) {
+  try {
+    return decodeURIComponent(code)
+  } catch {
+    return code
+  }
+}
+
 //* customers and vendors render these with a fixed type
 
 export async function BpMasterListPage({ type }: { type: BpMasterType }) {
@@ -24,23 +32,26 @@ export async function BpMasterListPage({ type }: { type: BpMasterType }) {
 
   return (
     <ContentContainer>
-      <BpMasterContent type={type} />
+      <BpMasterContent type={type} userCode={currentUserWithAbility?.userCode ?? null} />
     </ContentContainer>
   )
 }
 
 export async function BpMasterFormPage({ type, params }: BpMasterPageProps) {
   const { code } = await params
-  const { label, permission } = BP_MASTER_CONFIG[type]
+  const { label, permission, canCreate } = BP_MASTER_CONFIG[type]
+
+  //* vendors only come from sap for now
+  if (!canCreate) notFound()
 
   const isAdd = code === 'add'
+  const cardCode = toCardCode(code)
 
   const dbCode = await getCurrentDbCode()
 
-  const [bpMaster, currentUserWithAbility, countryOptions] = await Promise.all([
-    isAdd ? null : getBpMasterByCode(dbCode, type, code),
-    getCurrentUserWithAbility(),
-    getCountryOptions()
+  const [bpMaster, currentUserWithAbility] = await Promise.all([
+    isAdd ? null : getBpMasterByCode(dbCode, type, cardCode),
+    getCurrentUserWithAbility()
   ])
 
   //* check authorization for create, edit
@@ -55,7 +66,7 @@ export async function BpMasterFormPage({ type, params }: BpMasterPageProps) {
 
   return (
     <ContentContainer>
-      <BpMasterForm type={type} pageMetaData={pageMetaData} bpMaster={bpMaster} countryOptions={countryOptions} />
+      <BpMasterForm type={type} pageMetaData={pageMetaData} bpMaster={bpMaster} />
     </ContentContainer>
   )
 }
@@ -65,7 +76,10 @@ export async function BpMasterViewPage({ type, params }: BpMasterPageProps) {
 
   const dbCode = await getCurrentDbCode()
 
-  const [bpMaster, currentUserWithAbility] = await Promise.all([getBpMasterByCode(dbCode, type, code), getCurrentUserWithAbility()])
+  const [bpMaster, currentUserWithAbility] = await Promise.all([
+    getBpMasterByCode(dbCode, type, toCardCode(code)),
+    getCurrentUserWithAbility()
+  ])
 
   //* check authorization for view
   authorizePage(currentUserWithAbility?.ability, PERMISSIONS_ALLOWED_ACTIONS.VIEW, BP_MASTER_CONFIG[type].permission)

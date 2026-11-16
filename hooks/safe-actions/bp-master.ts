@@ -1,9 +1,40 @@
 import { useEffect } from 'react'
 import { useAction } from 'next-safe-action/hooks'
 
-import { getDataTableBpMastersSvrClient } from '@/actions/bp-master'
+import { getBpMasterLookupsClient, getDataTableBpMastersSvrClient, getStatesByCountryClient } from '@/actions/bp-master'
 import { BpMasterTableParams } from '@/schema/bp-master'
+import { BpMasterType } from '@/constants/bp-master'
 import { SafeActionHook } from '@/types/safe-action'
+
+const EMPTY_LOOKUPS = { groups: [], currencies: [], paymentTerms: [], countries: [], accountTypes: [], isError: false }
+
+export function useBpMasterLookups(type: BpMasterType) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getBpMasterLookupsClient)
+
+  useEffect(() => {
+    execute({ type })
+  }, [type])
+
+  return {
+    execute,
+    executeAsync,
+    isLoading,
+    isLoaded: !!result.data,
+    data: result.data ?? EMPTY_LOOKUPS,
+    error: { serverError: result.serverError, validationError: result.validationErrors }
+  }
+}
+
+export function useStatesByCountry(country?: string | null) {
+  const { execute, isExecuting: isLoading, result, reset } = useAction(getStatesByCountryClient)
+
+  useEffect(() => {
+    if (country) execute({ country })
+    else reset()
+  }, [country])
+
+  return { isLoading, data: country ? (result.data ?? []) : [] }
+}
 
 export function useDataTableBpMastersSvr(params: BpMasterTableParams, hook: SafeActionHook, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getDataTableBpMastersSvrClient)

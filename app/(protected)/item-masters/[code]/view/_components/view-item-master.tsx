@@ -71,7 +71,7 @@ export default function ViewItemMaster({ itemMaster }: ViewItemMasterProps) {
           {itemMaster.syncStatus !== 'SYNCED' && (
             <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.SYNC_TO_SAP}>
               <TooltipWrapper label='Sync to SAP'>
-                <LoadingButton type='button' isLoading={syncAction.isExecuting} onClick={handleSyncToSap}>
+                <LoadingButton type='button' variant='outline-primary' isLoading={syncAction.isExecuting} onClick={handleSyncToSap}>
                   <Icons.upload /> Sync to SAP
                 </LoadingButton>
               </TooltipWrapper>

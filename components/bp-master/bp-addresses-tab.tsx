@@ -1,6 +1,6 @@
 'use client'
 
-import { BpMasterWithRelations } from '@/actions/bp-master'
+import { BpMasterRow } from '@/actions/bp-master'
 import { BP_ADDRESS_TYPE_LABELS, BP_ADDRESS_TYPES } from '@/constants/bp-master'
 import ContentWrapper from '@/components/content-wrapper'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
@@ -8,30 +8,33 @@ import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import EmptyState from '@/components/empty-state'
 import { Icons } from '@/components/icons'
+import { isSameName } from '@/schema/bp-master'
 import BpRecordCard from './bp-record-card'
 
-type BpAddressesTabProps = { bpMaster: BpMasterWithRelations }
+type BpAddressesTabProps = { bpMaster: BpMasterRow }
 
-type Address = BpMasterWithRelations['addresses'][number]
+type Address = BpMasterRow['addresses'][number]
 
 const toAddressFields = (a: Address): [string, string | null][] => [
-  ['Line 1', a.line1],
-  ['Line 2', a.line2],
-  ['Line 3', a.line3],
-  ['Street No.', a.streetNo],
-  ['Building/Floor/Room', a.buildingFloorRoom],
-  ['Block', a.block],
-  ['City', a.city],
-  ['Zip Code', a.zipCode],
-  ['Country', a.countryName],
-  ['State/Province', a.stateName]
+  ['Street / PO Box', a.Street],
+  ['Address 2', a.Address2],
+  ['Address 3', a.Address3],
+  ['Street No.', a.StreetNo],
+  ['Building/Floor/Room', a.BuildingFloorRoom],
+  ['Block', a.Block],
+  ['City', a.City],
+  ['Zip Code', a.ZipCode],
+  ['County', a.County],
+  ['Country', a.CountryName ?? a.CountryCode],
+  ['State/Province', a.StateName ?? a.StateCode]
 ]
 
 export default function BpAddressesTab({ bpMaster }: BpAddressesTabProps) {
   const groups = [BP_ADDRESS_TYPES.BILLING, BP_ADDRESS_TYPES.SHIPPING].map((type) => ({
     type,
     label: BP_ADDRESS_TYPE_LABELS[type],
-    rows: bpMaster.addresses.filter((a) => a.type === type)
+    defaultName: type === BP_ADDRESS_TYPES.BILLING ? bpMaster.BillToDef : bpMaster.ShipToDef,
+    rows: bpMaster.addresses.filter((a) => a.AddrType === type)
   }))
 
   return (
@@ -53,7 +56,13 @@ export default function BpAddressesTab({ bpMaster }: BpAddressesTabProps) {
                 />
               ) : (
                 group.rows.map((a) => (
-                  <BpRecordCard key={a.id} code={a.code} name={a.name} isDefault={a.isDefault} fields={toAddressFields(a)} />
+                  <BpRecordCard
+                    key={a.id}
+                    name={a.AddressName}
+                    isDefault={isSameName(a.AddressName, group.defaultName)}
+                    syncStatus={a.syncStatus}
+                    fields={toAddressFields(a)}
+                  />
                 ))
               )}
             </div>

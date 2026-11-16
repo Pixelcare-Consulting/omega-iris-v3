@@ -10,9 +10,11 @@ import {
   SapItemBody,
   SapItemGroup,
   SapManufacturer,
+  SapPaymentTermsType,
   SapSalesPerson,
   SapSeries,
   SapState,
+  SapUserField,
   SapVatGroup
 } from '@/types/sap'
 import { SAP_NO_PAGINATION } from '@/constants/sap'
@@ -96,7 +98,9 @@ export const SAP_ENDPOINTS = {
   'states.list': endpoint<SapCollection<SapState>>({ method: 'GET', path: 'States', headers: NO_PAGING }),
   'itemGroups.list': endpoint<SapCollection<SapItemGroup>>({ method: 'GET', path: 'ItemGroups', headers: NO_PAGING }),
   'manufacturers.list': endpoint<SapCollection<SapManufacturer>>({ method: 'GET', path: 'Manufacturers', headers: NO_PAGING }),
-  'vatGroups.list': endpoint<SapCollection<SapVatGroup>>({ method: 'GET', path: 'VatGroups', headers: NO_PAGING })
+  'vatGroups.list': endpoint<SapCollection<SapVatGroup>>({ method: 'GET', path: 'VatGroups', headers: NO_PAGING }),
+  'paymentTerms.list': endpoint<SapCollection<SapPaymentTermsType>>({ method: 'GET', path: 'PaymentTermsTypes', headers: NO_PAGING }),
+  'userFields.list': endpoint<SapCollection<SapUserField>>({ method: 'GET', path: 'UserFieldsMD', headers: NO_PAGING })
 }
 
 export type SapEndpoints = typeof SAP_ENDPOINTS

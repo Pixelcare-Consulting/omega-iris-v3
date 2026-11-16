@@ -81,7 +81,7 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     isParent: false,
     parentCode: PERMISSIONS_CODES['BP_MASTER'],
     isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export', 'sync to sap', 'sync from sap']
   },
   {
     code: PERMISSIONS_CODES['VENDORS'],
@@ -90,7 +90,7 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     isParent: false,
     parentCode: PERMISSIONS_CODES['BP_MASTER'],
     isSystem: true,
-    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export', 'sync from sap']
   },
   {
     code: PERMISSIONS_CODES['ITEM_MASTERS'],
