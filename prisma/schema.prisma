@@ -24,6 +24,8 @@ model User {
   isDefaultPasswordChanged Boolean   @default(false)
   isLocked                 Boolean   @default(false)
   isSystem                 Boolean   @default(false)
+  isInternal               Boolean   @default(false) //* omega personnel
+  employeeId               String?   @unique
   failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and successfully signin
   lastSignin               DateTime?
 
@@ -35,9 +37,10 @@ model User {
   deletedBy Int?
 
   role                    Role             @relation(fields: [roleCode], references: [code])
-  sessions                AuthSession[]
+  authSessions            AuthSession[]
   accounts                Account[]
   uploadedFileAttachments FileAttachment[] @relation(name: "UploadedFileAttachments")
+  sessions                Session[]
 
   @@index([roleCode])
   @@index([deletedAt])
@@ -212,6 +215,8 @@ model Site {
   isEnableOutbound   Boolean @default(false)
   isEnableMovement   Boolean @default(false)
   isEnableCycleCount Boolean @default(false)
+  isEnableQcTesting  Boolean @default(false) //? may change later
+  isEnableRma        Boolean @default(false) //? may change later
   isActive           Boolean @default(true)
   isSystem           Boolean @default(false)
 
@@ -223,6 +228,7 @@ model Site {
   deletedBy Int?
 
   locations Location[]
+  sessions  Session[]
 
   @@unique([dbCode, code])
   @@unique([dbCode, name])
@@ -380,6 +386,69 @@ model Container {
   @@index([projectCategoryCode])
   @@index([customerProjectCode])
   @@index([deletedAt])
+}
+
+enum SessionType {
+  INBOUND
+  OUTBOUND
+  MOVEMENT
+  CYCLE_COUNT
+  QC_TESTING
+  RMA
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+//* header only, each process adds its own line table later
+//* one in progress or paused session per user, the start action checks it
+model Session {
+  id           String        @id @default(cuid())
+  dbCode       String
+  code         String
+  type         SessionType
+  status       SessionStatus @default(IN_PROGRESS)
+  userCode     Int
+  employeeId   String? //* copied from the user at start
+  siteCode     String
+  startedAt    DateTime      @default(now())
+  endedAt      DateTime?
+  cancelReason String?
+  notes        String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  user   User           @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Restrict)
+  site   Site           @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pauses SessionPause[]
+
+  @@unique([dbCode, code])
+  @@index([userCode])
+  @@index([dbCode, siteCode])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model SessionPause {
+  id          String    @id @default(cuid())
+  dbCode      String
+  sessionCode String
+  pausedAt    DateTime  @default(now())
+  resumedAt   DateTime?
+  reason      String?
+
+  session Session @relation(fields: [dbCode, sessionCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([dbCode, sessionCode])
 }
 
 model ProjectCategory {

@@ -85,6 +85,12 @@ export default function UserContent({ roleOptions }: UserContentProps) {
       meta: { title: 'Email', exportValue: (row) => row.email }
     },
     {
+      accessorKey: 'employeeId',
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Employee ID' />,
+      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.employeeId} highlight={table.getState().globalFilter} />,
+      meta: { title: 'Employee ID', exportValue: (row) => row.employeeId ?? '' }
+    },
+    {
       accessorFn: (row) => row?.role?.key,
       accessorKey: 'roleName',
       filterFn: multiSelectFilterFn,
@@ -117,6 +123,27 @@ export default function UserContent({ roleOptions }: UserContentProps) {
           { label: 'No', value: 'No' }
         ],
         exportValue: (row) => (row.isActive ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isInternal ? 'Yes' : 'No'),
+      accessorKey: 'isInternal',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Internal' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isInternal}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Internal',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isInternal ? 'Yes' : 'No')
       }
     },
     {
@@ -356,6 +383,7 @@ export default function UserContent({ roleOptions }: UserContentProps) {
               <DataTableGlobalSearch table={table} isLoading={dataTableUsersSvr.isLoading} />
               <DataTableColumnFilter column={table.getColumn('roleName')} title='Role' isLoading={dataTableUsersSvr.isLoading} />
               <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={dataTableUsersSvr.isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isInternal')} title='Internal' isLoading={dataTableUsersSvr.isLoading} />
               <DataTableColumnFilter column={table.getColumn('isLocked')} title='Locked' isLoading={dataTableUsersSvr.isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={dataTableUsersSvr.isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={dataTableUsersSvr.isLoading} />

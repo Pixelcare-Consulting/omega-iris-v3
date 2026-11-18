@@ -20,7 +20,7 @@ import { auth } from '@/lib/auth'
 import { buildAbilityFor } from '@/lib/rbac'
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 import { toFullName } from '@/lib/user'
-import { toFieldListMessage } from '@/lib/duplicate'
+import { findSameText, isUniqueConstraintError, toFieldListMessage } from '@/lib/duplicate'
 
 const COMMON_USER_INCLUDE = {
   role: true
@@ -74,9 +74,9 @@ export async function getDataTableUsersSvr(params: DataTableParams) {
   //* global filter
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
-      stringFields: ['fname', 'mname', 'lname', 'suffix', 'name', 'email', 'username'],
+      stringFields: ['fname', 'mname', 'lname', 'suffix', 'name', 'email', 'username', 'employeeId'],
       numericFields: ['code'],
-      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }],
+      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }, { field: 'isInternal' }],
       relationFields: [{ relation: 'role', fields: ['name'] }]
     })
 
@@ -88,7 +88,7 @@ export async function getDataTableUsersSvr(params: DataTableParams) {
     const currentFilters = where.AND as Prisma.UserWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }],
+      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }, { field: 'isInternal' }],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }],
       relationFields: [{ id: 'roleName', relation: 'role', field: 'key' }]
     })
@@ -180,7 +180,7 @@ export const upsertUser = action
     const actionTag = 'UPSERT_USER'
 
     try {
-      const [existingUsername, existingEmail] = await Promise.all([
+      const [existingUsername, existingEmail, sameEmployeeIds] = await Promise.all([
         db.user.findFirst({
           where: {
             username: data.username,
@@ -192,13 +192,25 @@ export const upsertUser = action
             email: data.email,
             ...(code && code !== -1 && { code: { not: code } })
           }
-        })
+        }),
+        data.employeeId
+          ? db.user.findMany({
+              where: {
+                employeeId: { equals: data.employeeId, mode: 'insensitive' },
+                ...(code && code !== -1 && { code: { not: code } })
+              }
+            })
+          : []
       ])
+
+      //* ignores letter case, so EMP-01 clashes with emp-01
+      const existingEmployeeId = data.employeeId ? findSameText(sameEmployeeIds, (row) => row.employeeId ?? '', data.employeeId) : null
 
       const duplicates: DuplicateFields = []
 
       if (existingUsername) duplicates.push({ field: 'username', name: 'Username', message: 'Username already exists!' })
       if (existingEmail) duplicates.push({ field: 'email', name: 'Email', message: 'Email already exists!' })
+      if (existingEmployeeId) duplicates.push({ field: 'employeeId', name: 'Employee ID', message: 'Employee ID already exists!' })
 
       if (duplicates.length > 0) {
         const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
@@ -289,6 +301,11 @@ export const upsertUser = action
       return { status: 200, message: 'User created successfully!', data: { user: newUser }, action: actionTag }
     } catch (err: any) {
       logger.error(err, `[${actionTag}_ERROR]:`)
+
+      //* a save that raced past the check above
+      if (isUniqueConstraintError(err)) {
+        return { status: 409, error: true, message: 'Username, email or employee ID already exists!', action: actionTag }
+      }
 
       if (err?.statusCode === 422) return { status: 422, message: 'Email already exists!', action: actionTag }
       if (err?.status === 409) return { status: 409, message: 'Username already exists!', action: actionTag }

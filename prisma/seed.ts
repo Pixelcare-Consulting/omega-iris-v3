@@ -73,6 +73,9 @@ async function main() {
       }
     })
 
+    //* sign up cannot set it, the field is input false
+    await db.user.update({ where: { username: 'admin' }, data: { isInternal: true } })
+
     //* one copy of each default per sap database, flagged system so they stay view only
     logger.info('Create default project categories...')
     await db.projectCategory.createMany({

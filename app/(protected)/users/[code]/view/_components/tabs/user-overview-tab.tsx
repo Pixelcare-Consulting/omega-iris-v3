@@ -55,6 +55,10 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
           </Column>
 
           <Column md={6} lg={3}>
+            <ReadOnlyField title='Employee ID' value={user.employeeId} />
+          </Column>
+
+          <Column md={6} lg={3}>
             <ReadOnlyField title='Role' value={<RelationLink href={`/roles/${user.role.code}/view`}>{user.role.name}</RelationLink>} />
           </Column>
 
@@ -68,9 +72,13 @@ export default function UserOverviewTab({ user }: UserOverviewTabProps) {
           </Column>
 
           <Column md={6} lg={3}>
+            <ReadOnlyField title='Internal' value={user.isInternal ? 'Yes' : 'No'} description='Is this user Omega personnel?' />
+          </Column>
+
+          <Column md={6} lg={3}>
             <ReadOnlyField
               title='Force To Change Password'
-              value={user.isActive ? 'Yes' : 'No'}
+              value={user.isDefaultPasswordChanged ? 'No' : 'Yes'}
               description='Required the user to change their password upon next login'
             />
           </Column>

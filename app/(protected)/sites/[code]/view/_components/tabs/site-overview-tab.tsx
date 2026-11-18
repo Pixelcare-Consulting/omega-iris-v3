@@ -62,6 +62,14 @@ export default function SiteOverviewTab({ site }: SiteOverviewTabProps) {
             />
           </Column>
 
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='QC/Testing' description='Stock at the site can be tested' value={site.isEnableQcTesting ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='RMA' description='Site can take returns' value={site.isEnableRma ? 'Yes' : 'No'} />
+          </Column>
+
           <Column>
             <Separator className='mt-3 mb-4' />
             <ReadOnlyFieldHeader title='Settings' description="Site's setting" />

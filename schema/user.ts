@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { toUsername } from '@/lib/user'
+import { optionalString } from '@/schema/common'
 
 export const userFormSchema = z
   .object({
@@ -17,6 +18,8 @@ export const userFormSchema = z
       //! .min(1) runs before the transform, so an all-punctuation input like '!!!' would otherwise normalize to ''
       .refine((value) => value.length > 0, { message: 'Username must contain at least one letter or number' }),
     email: z.email('Email is invalid').trim().min(1, 'Email is required'),
+    employeeId: optionalString.transform((v) => v?.toUpperCase() ?? null),
+    isInternal: z.boolean(),
     password: z.string().nullish(),
     confirmPassword: z.string().nullish(),
     roleCode: z.coerce.number().min(1, { message: 'Role is required' }),

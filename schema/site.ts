@@ -11,6 +11,8 @@ export const siteFormSchema = z.object({
   isEnableOutbound: z.boolean(),
   isEnableMovement: z.boolean(),
   isEnableCycleCount: z.boolean(),
+  isEnableQcTesting: z.boolean(),
+  isEnableRma: z.boolean(),
   isActive: z.boolean()
 })
 

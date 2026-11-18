@@ -155,6 +155,48 @@ export default function SiteContent() {
       }
     },
     {
+      accessorFn: (row) => (row?.isEnableQcTesting ? 'Yes' : 'No'),
+      accessorKey: 'isEnableQcTesting',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='QC/Testing' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableQcTesting}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'QC/Testing',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableQcTesting ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isEnableRma ? 'Yes' : 'No'),
+      accessorKey: 'isEnableRma',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='RMA' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableRma}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'RMA',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableRma ? 'Yes' : 'No')
+      }
+    },
+    {
       accessorFn: (row) => (row?.isActive ? 'Yes' : 'No'),
       accessorKey: 'isActive',
       filterFn: multiSelectFilterFn,
@@ -392,6 +434,8 @@ export default function SiteContent() {
               <DataTableColumnFilter column={table.getColumn('isEnableOutbound')} title='Outbound' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isEnableMovement')} title='Movement' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isEnableCycleCount')} title='Cycle Count' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableQcTesting')} title='QC/Testing' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableRma')} title='RMA' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={isLoading} />

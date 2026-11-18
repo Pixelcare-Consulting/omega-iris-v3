@@ -206,6 +206,19 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 - **Blocks.** A pallet with live containers can't leave Active. A location with live pallets can't turn off Pallet Allowed. A pallet can't be restored onto a location that is inactive or no longer allows pallets. A container can't be restored onto an inactive location, or a pallet that is no longer Active or has moved. A customer project's category is locked after create, since pallet and container codes hold it. Each block returns 409.
 - **Moves.** A later movement feature changes locations. Moving a pallet there also moves its containers.
 
+## Sessions
+
+A `Session` is one stretch of floor work by one user at one site, for one `SessionType`. Only the models exist so far. The actions and screens come later and follow these rules.
+
+- **Lines.** `Session` is the header only. Each process gets its own line table (`InboundLine`, `MovementLine`, …) that points at the session by `dbCode` + `sessionCode`, the way `SessionPause` does. One generic line table would not fit, since inbound, movement and cycle count lines share almost no fields.
+- **Codes.** `S-<yyyy>-<000001>`, e.g. `S-2026-000125`, one prefix for every type. `reserveSequence` makes them inside the start transaction under the `SESSION` key. The scope is `<dbCode>:<yyyy>`, so each database counts on its own and every year starts over. The code leaves `dbCode` out, since `Session` is unique on `dbCode` + `code`.
+- **Start.** A user has at most one session that is `IN_PROGRESS` or `PAUSED`, and starting a second returns 409. Prisma cannot express that partial unique index, so the action checks it. The site must have the matching `isEnable*` switch on. The action copies `employeeId` from the user, so old sessions keep the right person after the user's id changes.
+- **Pauses.** Each pause is a `SessionPause` row. Active time is `endedAt - startedAt` minus the closed pauses.
+- **Cancel, never delete.** A cancelled session keeps its rows and gets a `cancelReason`.
+- **Mobile.** A mobile app will read and write sessions later. It cannot call server actions, so it goes through route handlers under `/api/mobile/` with better-auth bearer tokens.
+- **Naming.** `User.sessions` is `Session[]`, and better-auth's own relation is `authSessions`. If `@better-auth/cli generate` writes `sessions AuthSession[]` back onto `User`, reject that part.
+- **Users.** `isInternal` marks Omega personnel. `employeeId` is optional, saved uppercase, and unique. Both are `input: false` in [lib/auth.ts](lib/auth.ts), so only `upsertUser` writes them.
+
 ## SAP sync
 
 The item master is the reference module. Its sync actions live in [actions/item-master-sync.ts](actions/item-master-sync.ts). Copy that shape when another model syncs with SAP.

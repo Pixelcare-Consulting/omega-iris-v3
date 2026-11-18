@@ -51,6 +51,8 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
       isEnableOutbound: false,
       isEnableMovement: false,
       isEnableCycleCount: false,
+      isEnableQcTesting: false,
+      isEnableRma: false,
       isActive: true
     }),
     []
@@ -58,7 +60,19 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
 
   const values = useMemo(() => {
     if (site) {
-      const { id, code, name, description, isEnableInbound, isEnableOutbound, isEnableMovement, isEnableCycleCount, isActive } = site
+      const {
+        id,
+        code,
+        name,
+        description,
+        isEnableInbound,
+        isEnableOutbound,
+        isEnableMovement,
+        isEnableCycleCount,
+        isEnableQcTesting,
+        isEnableRma,
+        isActive
+      } = site
       return {
         id,
         code,
@@ -68,6 +82,8 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
         isEnableOutbound,
         isEnableMovement,
         isEnableCycleCount,
+        isEnableQcTesting,
+        isEnableRma,
         isActive
       }
     }
@@ -269,6 +285,26 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
                     label='Cycle Count'
                     layout='choice-card'
                     description='Stock at the site can be counted'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableQcTesting'
+                    label='QC/Testing'
+                    layout='choice-card'
+                    description='Stock at the site can be tested'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableRma'
+                    label='RMA'
+                    layout='choice-card'
+                    description='Site can take returns'
                   />
                 </Column>
 

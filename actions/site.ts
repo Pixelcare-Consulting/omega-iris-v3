@@ -78,6 +78,8 @@ export async function getDataTableSitesSvr(dbCode: string, params: DataTablePara
         { field: 'isEnableOutbound' },
         { field: 'isEnableMovement' },
         { field: 'isEnableCycleCount' },
+        { field: 'isEnableQcTesting' },
+        { field: 'isEnableRma' },
         { field: 'isActive' }
       ]
     })
@@ -95,6 +97,8 @@ export async function getDataTableSitesSvr(dbCode: string, params: DataTablePara
         { field: 'isEnableOutbound' },
         { field: 'isEnableMovement' },
         { field: 'isEnableCycleCount' },
+        { field: 'isEnableQcTesting' },
+        { field: 'isEnableRma' },
         { field: 'isActive' }
       ],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
