@@ -41,12 +41,12 @@ export default function ProjectCategoryForm({ pageMetaData, projectCategory }: P
 
   const isCreate = code === 'add' || !projectCategory
 
-  const defaultValues = useMemo(() => ({ id: null, code: '', name: '', description: '', isActive: true }), [])
+  const defaultValues = useMemo(() => ({ id: null, code: '', name: '', description: '', isPoRequired: false, isActive: true }), [])
 
   const values = useMemo(() => {
     if (projectCategory) {
-      const { id, code, name, description, isActive } = projectCategory
-      return { id, code, name, description: description ?? '', isActive }
+      const { id, code, name, description, isPoRequired, isActive } = projectCategory
+      return { id, code, name, description: description ?? '', isPoRequired, isActive }
     }
 
     if (isCreate) return defaultValues
@@ -207,6 +207,16 @@ export default function ProjectCategoryForm({ pageMetaData, projectCategory }: P
                 <Column>
                   <Separator className='mt-3 mb-4' />
                   <ReadOnlyFieldHeader title='Settings' description="Configure the project category's setting" />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isPoRequired'
+                    label='PO Required'
+                    layout='choice-card'
+                    description='Transactions under this category need a PO'
+                  />
                 </Column>
 
                 <Column md={6} lg={3}>

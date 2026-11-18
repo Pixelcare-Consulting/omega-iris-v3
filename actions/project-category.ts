@@ -73,7 +73,7 @@ export async function getDataTableProjectCategoriesSvr(dbCode: string, params: D
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
       stringFields: ['code', 'name', 'description'],
-      booleanFields: [{ field: 'isActive' }]
+      booleanFields: [{ field: 'isPoRequired' }, { field: 'isActive' }]
     })
 
     Object.assign(where, filter)
@@ -84,7 +84,7 @@ export async function getDataTableProjectCategoriesSvr(dbCode: string, params: D
     const currentFilters = where.AND as Prisma.ProjectCategoryWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      booleanFields: [{ field: 'isActive' }],
+      booleanFields: [{ field: 'isPoRequired' }, { field: 'isActive' }],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
     })
 

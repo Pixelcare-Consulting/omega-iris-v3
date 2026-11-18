@@ -7,6 +7,7 @@ export const projectCategoryFormSchema = z.object({
   code: codeSchema.max(3, { message: 'Code must be at most 3 characters' }),
   name: z.string().trim().min(1, { message: 'Name is required' }),
   description: optionalString,
+  isPoRequired: z.boolean(),
   isActive: z.boolean()
 })
 
