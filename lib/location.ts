@@ -1,6 +1,7 @@
 import type { LocationType } from '@/prisma/generated/enums'
 import type { LocationGenerateLine } from '@/schema/location'
 import { LOCATION_BAY_OPTIONS, LOCATION_LEVEL_OPTIONS, LOCATION_RACK_OPTIONS } from '@/constants/location'
+import type { LabelSize } from '@/constants/label'
 
 export type LocationCodeParts = {
   siteCode: string
@@ -23,6 +24,10 @@ export function buildLocationCode({ siteCode, processZoneCode, bayCode, levelCod
   const base = [siteCode, processZoneCode, bayCode].join('-')
   const suffix = `${levelCode ?? ''}${rackCode ?? ''}`
   return suffix ? `${base}-${suffix}` : base
+}
+
+export function getLocationLabelPdfHref(code: string, size: LabelSize, isDownload = false) {
+  return `/api/locations/${encodeURIComponent(code)}/label/pdf?size=${size}${isDownload ? '&download=1' : ''}`
 }
 
 //* keep picks in option order, not click order

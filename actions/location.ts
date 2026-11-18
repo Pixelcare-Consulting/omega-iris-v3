@@ -31,6 +31,20 @@ export async function getLocationByCode(dbCode: string | null, code?: string | n
   }
 }
 
+//* live rows only, ordered by code, missing ids drop out
+export async function getLocationsByIds(dbCode: string, ids: string[]) {
+  try {
+    return await db.location.findMany({
+      where: { dbCode, id: { in: ids }, deletedAt: null },
+      include: COMMON_LOCATION_INCLUDE,
+      orderBy: { code: 'asc' }
+    })
+  } catch (err: any) {
+    logger.error(err, '[GET_LOCATIONS_BY_IDS_ERROR]:')
+    return []
+  }
+}
+
 export async function getDataTableLocationsSvr(dbCode: string, params: DataTableParams) {
   const { perPage, offset, globalFilter, sorting, columnFilters, isExport, isShowDeleted } = getDataTableParams(params)
 
@@ -184,7 +198,7 @@ export const generateLocations = action
   .use(tenantMiddleware)
   .inputSchema(locationGenerateFormSchema)
   .action(async ({ ctx, parsedInput }) => {
-    const { siteCode, isActive, lines, excludedCodes } = parsedInput
+    const { siteCode, lines, excludedCodes } = parsedInput
     const { dbCode, userCode, ability } = ctx
     const actionTag = 'GENERATE_LOCATIONS'
 
@@ -221,7 +235,7 @@ export const generateLocations = action
           levelCode,
           rackCode,
           type,
-          isActive,
+          isActive: true, //* new locations start active, the edit form changes it
           isPalletAllowed
         }))
 

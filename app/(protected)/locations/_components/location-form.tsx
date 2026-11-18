@@ -95,8 +95,15 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
     resolver: zodResolver(locationFormSchema)
   })
 
+  const [siteCode, processZoneCode, bayCode, levelCode, rackCode] = useWatch({
+    control: form.control,
+    name: ['siteCode', 'processZoneCode', 'bayCode', 'levelCode', 'rackCode']
+  })
+
   const sites = useSites()
   const processZones = useProcessZones()
+  const upsertLocationAction = useAction(upsertLocation)
+  const { intent, setIntent, consumeIntent } = useSubmitIntent()
 
   //* pickers list active rows only, an old record keeps its own
   const siteOptions = useMemo(() => {
@@ -108,24 +115,6 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
     const current = location?.processZone ? toFormOption(location.processZone) : null
     return withCurrentOption(toFormOptions(processZones.data), current)
   }, [processZones.data, location])
-
-  const [siteCode, processZoneCode, bayCode, levelCode, rackCode] = useWatch({
-    control: form.control,
-    name: ['siteCode', 'processZoneCode', 'bayCode', 'levelCode', 'rackCode']
-  })
-
-  //* preview only, the server builds the real code
-  useEffect(() => {
-    if (!isCreate) return
-
-    const codePreview =
-      siteCode && processZoneCode && bayCode ? buildLocationCode({ siteCode, processZoneCode, bayCode, levelCode, rackCode }) : ''
-    form.setValue('code', codePreview)
-  }, [isCreate, form, siteCode, processZoneCode, bayCode, levelCode, rackCode])
-
-  const upsertLocationAction = useAction(upsertLocation)
-
-  const { intent, setIntent, consumeIntent } = useSubmitIntent()
 
   const handleSubmit = async (formValues: LocationForm) => {
     const submitIntent = consumeIntent()
@@ -151,20 +140,9 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
       if (result?.data?.location) {
         router.refresh()
 
-        //* save and new keeps site and zone for the next slot
         if (submitIntent === 'save-new') {
-          if (isCreate) {
-            form.reset(
-              {
-                ...DEFAULT_VALUES,
-                type: formValues.type,
-                siteCode: formValues.siteCode,
-                processZoneCode: formValues.processZoneCode,
-                isPalletAllowed: formValues.isPalletAllowed
-              },
-              { keepDirtyValues: false }
-            )
-          } else router.push('/locations/add')
+          if (isCreate) form.reset(DEFAULT_VALUES, { keepDirtyValues: false })
+          else router.push('/locations/add')
 
           return
         }
@@ -179,6 +157,15 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
       toast.error('Something went wrong! Please try again later.')
     }
   }
+
+  //* preview only, the server builds the real code
+  useEffect(() => {
+    if (!isCreate) return
+
+    const codePreview =
+      siteCode && processZoneCode && bayCode ? buildLocationCode({ siteCode, processZoneCode, bayCode, levelCode, rackCode }) : ''
+    form.setValue('code', codePreview)
+  }, [isCreate, form, siteCode, processZoneCode, bayCode, levelCode, rackCode])
 
   return (
     <FormProvider {...form}>
@@ -263,7 +250,7 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
                     control={form.control}
                     name='code'
                     label='Code'
-                    description={isCreate ? 'Built from site, zone, bay, level and rack' : 'Code cannot be changed'}
+                    description={isCreate ? 'Made from the site, zone, bay, level and rack you pick' : 'Code cannot be changed'}
                     extendedProps={{ inputProps: { disabled: true } }}
                   />
                 </Column>
@@ -367,7 +354,7 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
                     name='isActive'
                     label='Active'
                     layout='choice-card'
-                    description='Inactive locations are hidden from selection'
+                    description="Inactive locations don't show up in pickers"
                     extendedProps={{ switchProps: { disabled: isCreate } }}
                   />
                 </Column>
@@ -378,7 +365,7 @@ export default function LocationForm({ pageMetaData, location }: LocationFormPro
                     name='isPalletAllowed'
                     label='Pallet Allowed'
                     layout='choice-card'
-                    description='Whether pallets can be stored here, starts from the process zone'
+                    description="Allows pallets here, starts with the process zone's setting"
                   />
                 </Column>
               </Row>

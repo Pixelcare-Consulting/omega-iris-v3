@@ -24,7 +24,7 @@ import { Column } from '@/components/column'
 import ReadOnlyFieldHeader from '@/components/read-only-field-header'
 import ContentWrapper from '@/components/content-wrapper'
 import LoadingButton from '@/components/forms/button-field'
-import SwitchField from '@/components/forms/switch-field'
+import ReadOnlyField from '@/components/read-only-field'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { logger } from '@/lib/logger'
@@ -47,7 +47,7 @@ const BLANK_LINE: LineValues = {
   isPalletAllowed: false
 }
 
-const DEFAULT_VALUES: LocationGenerateFormValues = { siteCode: '', isActive: true, lines: [BLANK_LINE], excludedCodes: [] }
+const DEFAULT_VALUES: LocationGenerateFormValues = { siteCode: '', lines: [BLANK_LINE], excludedCodes: [] }
 
 //* wait for picking to settle before asking the server
 const EXISTING_LOOKUP_DELAY = 400
@@ -55,23 +55,28 @@ const EXISTING_LOOKUP_DELAY = 400
 export default function LocationGenerateForm({ pageMetaData }: { pageMetaData: PageMetadata }) {
   const router = useRouter()
 
+  const [existing, setExisting] = useState<Map<string, Date | null>>(new Map())
+  const [isChecking, setIsChecking] = useState(false)
+
   const form = useForm({
     mode: 'onChange',
     defaultValues: DEFAULT_VALUES,
     resolver: zodResolver(locationGenerateFormSchema)
   })
 
+  //* watched apart, so an untick doesn't rebuild the run
+  const [siteCode, lines] = useWatch({ control: form.control, name: ['siteCode', 'lines'] })
+  const excludedCodes = useWatch({ control: form.control, name: 'excludedCodes' })
+
   const lineFields = useFieldArray({ control: form.control, name: 'lines' })
 
   const sites = useSites()
   const processZones = useProcessZones()
+  const generateAction = useAction(generateLocations)
+  const existingCodesAction = useAction(getExistingLocationCodesClient)
 
   const siteOptions = useMemo(() => toFormOptions(sites.data), [sites.data])
   const zoneOptions = useMemo(() => toFormOptions(processZones.data), [processZones.data])
-
-  //* watched apart, so an untick doesn't rebuild the run
-  const [siteCode, lines] = useWatch({ control: form.control, name: ['siteCode', 'lines'] })
-  const excludedCodes = useWatch({ control: form.control, name: 'excludedCodes' })
 
   //* nothing to preview until the parts are picked
   const rows = useMemo(() => {
@@ -80,13 +85,36 @@ export default function LocationGenerateForm({ pageMetaData }: { pageMetaData: P
     return expandLocationRun(siteCode, readyLines as LineValues[])
   }, [siteCode, lines])
 
-  const [existing, setExisting] = useState<Map<string, Date | null>>(new Map())
-  const [isChecking, setIsChecking] = useState(false)
-
-  const existingCodesAction = useAction(getExistingLocationCodesClient)
-
   const lookupKey = useMemo(() => rows.filter((row) => !row.isRepeated).map((row) => row.code), [rows])
 
+  const toCreateCount = useMemo(() => {
+    const excluded = new Set(excludedCodes ?? [])
+    return rows.filter((row) => getPreviewStatus(row, existing, excluded) === 'CREATE').length
+  }, [rows, existing, excludedCodes])
+
+  const runError = form.formState.errors.lines?.root?.message ?? form.formState.errors.lines?.message
+  const isGenerateDisabled = generateAction.isExecuting || isChecking || toCreateCount === 0 || !form.formState.isValid
+
+  const handleSubmit = async (formValues: LocationGenerateFormValues) => {
+    try {
+      const response = await generateAction.executeAsync(formValues)
+      const result = response?.data
+
+      if (!result || result.error) {
+        toast.error(result?.message ?? 'Failed to generate locations!')
+        return
+      }
+
+      toast.success(result.message)
+      router.refresh()
+      router.push('/locations')
+    } catch (err: any) {
+      logger.error(err, '[LOCATION_GENERATE_FORM_HANDLE_SUBMIT_ERROR]:')
+      toast.error('Something went wrong! Please try again later.')
+    }
+  }
+
+  //* checks which codes already exist, debounced
   useEffect(() => {
     if (lookupKey.length === 0 || lookupKey.length > LOCATION_GENERATE_MAX_ROWS) {
       setExisting(new Map())
@@ -122,35 +150,6 @@ export default function LocationGenerateForm({ pageMetaData }: { pageMetaData: P
     const kept = (excludedCodes ?? []).filter((code) => codes.has(code))
     if (kept.length !== (excludedCodes ?? []).length) form.setValue('excludedCodes', kept)
   }, [rows, excludedCodes, form])
-
-  const toCreateCount = useMemo(() => {
-    const excluded = new Set(excludedCodes ?? [])
-    return rows.filter((row) => getPreviewStatus(row, existing, excluded) === 'CREATE').length
-  }, [rows, existing, excludedCodes])
-
-  const generateAction = useAction(generateLocations)
-
-  const handleSubmit = async (formValues: LocationGenerateFormValues) => {
-    try {
-      const response = await generateAction.executeAsync(formValues)
-      const result = response?.data
-
-      if (!result || result.error) {
-        toast.error(result?.message ?? 'Failed to generate locations!')
-        return
-      }
-
-      toast.success(result.message)
-      router.refresh()
-      router.push('/locations')
-    } catch (err: any) {
-      logger.error(err, '[LOCATION_GENERATE_FORM_HANDLE_SUBMIT_ERROR]:')
-      toast.error('Something went wrong! Please try again later.')
-    }
-  }
-
-  const runError = form.formState.errors.lines?.root?.message ?? form.formState.errors.lines?.message
-  const isGenerateDisabled = generateAction.isExecuting || isChecking || toCreateCount === 0 || !form.formState.isValid
 
   return (
     <FormProvider {...form}>
@@ -202,19 +201,16 @@ export default function LocationGenerateForm({ pageMetaData }: { pageMetaData: P
                 </Column>
 
                 <Column md={6} lg={3}>
-                  <SwitchField
-                    control={form.control}
-                    name='isActive'
-                    label='Active'
-                    layout='choice-card'
-                    description='Inactive locations are hidden from selection'
-                  />
+                  <ReadOnlyField title='Active' value='Yes' description='New locations start as Active, change it later on the edit form' />
                 </Column>
 
                 <Column>
                   <Separator className='mt-3 mb-4' />
                   <div className='flex items-center gap-2'>
-                    <ReadOnlyFieldHeader title='Lines' description='Each line picks one zone and its bays, levels and racks' />
+                    <ReadOnlyFieldHeader
+                      title='Lines'
+                      description='Each line is one process zone with the bays, levels and racks you pick'
+                    />
                     <Button
                       type='button'
                       variant='outline-primary'
@@ -242,7 +238,7 @@ export default function LocationGenerateForm({ pageMetaData }: { pageMetaData: P
 
                 <Column>
                   <Separator className='mt-3 mb-4' />
-                  <ReadOnlyFieldHeader title='Preview' description='Untick any code you do not want created' />
+                  <ReadOnlyFieldHeader title='Preview' description="Untick any code you don't want to create" />
                 </Column>
 
                 <Column>

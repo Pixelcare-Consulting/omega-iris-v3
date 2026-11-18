@@ -17,7 +17,7 @@ import ChipPickerField from '@/components/forms/chip-picker-field'
 import { LOCATION_BAY_OPTIONS, LOCATION_LEVEL_OPTIONS, LOCATION_RACK_OPTIONS, LOCATION_TYPE_OPTIONS } from '@/constants/location'
 
 //* how to pick chips, shown under each picker
-const PICKER_HINT = 'Click a chip to pick it, or click one then Shift+click another to pick everything between'
+const PICKER_HINT = 'Click to pick one. For a range, click the first, then Shift+click the last'
 
 type LocationGenerateLineProps = {
   index: number
@@ -107,7 +107,7 @@ export default function LocationGenerateLine({
               name={`lines.${index}.isPalletAllowed`}
               label='Pallet Allowed'
               layout='choice-card'
-              description='Whether pallets can be stored here, starts from the process zone'
+              description="Allows pallets here, starts with the process zone's setting"
             />
           </Column>
 

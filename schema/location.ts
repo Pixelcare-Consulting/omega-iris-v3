@@ -53,7 +53,6 @@ export type LocationGenerateLine = z.infer<typeof locationGenerateLineSchema>
 export const locationGenerateFormSchema = z
   .object({
     siteCode: z.string().trim().min(1, { message: 'Site is required' }),
-    isActive: z.boolean(),
     //* caps keep a crafted request from blowing up the expand
     lines: z
       .array(locationGenerateLineSchema)

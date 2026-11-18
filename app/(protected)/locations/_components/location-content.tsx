@@ -49,6 +49,14 @@ import {
   LOCATION_TYPE_OPTIONS
 } from '@/constants/location'
 import { FilterOption } from '@/types/data-table'
+import { Checkbox } from '@/components/ui/checkbox'
+import { ButtonGroup } from '@/components/ui/button-group'
+import LoadingButton from '@/components/forms/button-field'
+import { LABEL_MAX_COUNT, LabelSize } from '@/constants/label'
+import { logger } from '@/lib/logger'
+import { getLocationLabelPdfHref } from '@/lib/location'
+import { useLabelsPdf } from '@/hooks/use-labels-pdf'
+import LabelSizeModal from '@/components/label-size-modal'
 
 const YES_NO_OPTIONS = [
   { label: 'Yes', value: 'Yes' },
@@ -61,6 +69,8 @@ const BAY_OPTIONS = toValueOptions(LOCATION_BAY_OPTIONS)
 const LEVEL_OPTIONS = toValueOptions(LOCATION_LEVEL_OPTIONS)
 const RACK_OPTIONS = toValueOptions(LOCATION_RACK_OPTIONS)
 
+type LabelTarget = { mode: 'single'; code: string; name: string } | { mode: 'bulk' }
+
 type LocationContentProps = { siteOptions: FilterOption[]; processZoneOptions: FilterOption[] }
 
 export default function LocationContent({ siteOptions, processZoneOptions }: LocationContentProps) {
@@ -70,8 +80,39 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
 
   const deleteConfirm = useConfirmAction<{ code: string; name: string }>()
   const restoreConfirm = useConfirmAction<{ code: string; name: string }>()
+  const labelModal = useConfirmAction<LabelTarget>()
+  const selectAllAction = useAction(getDataTableLocationsSvrClient)
+  const dataTableLocationsSvrExport = useAction(getDataTableLocationsSvrClient)
+  const deleteLocationAction = useAction(deleteLocation)
+  const restoreLocationAction = useAction(restoreLocation)
+  const labelsPdf = useLabelsPdf('/api/locations/labels/pdf')
 
   const columns: ColumnDef<LocationWithRelations>[] = [
+    {
+      id: 'select',
+      enableSorting: false,
+      enableHiding: false,
+      size: 44,
+      minSize: 44,
+      maxSize: 44,
+      header: () => (
+        <div className='flex justify-center'>
+          <Checkbox
+            aria-label='Select all matching rows'
+            checked={isAllSelected ? true : selectedIds.length > 0 ? 'indeterminate' : false}
+            disabled={selectAllAction.isExecuting}
+            onCheckedChange={(value) => (value === true ? handleSelectAll() : table.resetRowSelection())}
+          />
+        </div>
+      ),
+      cell: ({ row }) =>
+        row.getCanSelect() ? (
+          <div className='flex justify-center'>
+            <Checkbox aria-label='Select row' checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} />
+          </div>
+        ) : null,
+      meta: { title: 'Select' }
+    },
     {
       accessorKey: 'code',
       header: ({ column }) => <DataTableColumnHeader column={column} title='Code' />,
@@ -192,6 +233,14 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
                   </TooltipWrapper>
                 </CanView>
 
+                <CanView subject={PERMISSIONS_CODES.LOCATIONS} action={PERMISSIONS_ALLOWED_ACTIONS.VIEW}>
+                  <TooltipWrapper label='Print Label'>
+                    <Button variant='ghost' size='icon-sm' onClick={() => labelModal.open({ mode: 'single', code, name })}>
+                      <Icons.qrCode className='text-muted-foreground size-4' />
+                    </Button>
+                  </TooltipWrapper>
+                </CanView>
+
                 <CanView subject={PERMISSIONS_CODES.LOCATIONS} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
                   <TooltipWrapper label='Edit'>
                     <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/locations/${codeSegment}`)}>
@@ -225,16 +274,76 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
 
   const { table, params, setData, setRowCount, isShowDeleted, setIsShowDeleted, refreshKey, refetch, refreshTable } = useDataTableServer({
     columns,
-    initialState: DEFAULT_TABLE_INITIAL_STATE,
-    getRowId: (row) => row.id
+    initialState: {
+      ...DEFAULT_TABLE_INITIAL_STATE,
+      columnPinning: { ...DEFAULT_TABLE_INITIAL_STATE.columnPinning, left: ['select'] }
+    },
+    getRowId: (row) => row.id,
+    enableRowSelection: (row) => !row.original.deletedAt
   })
 
   const dataTableLocationsSvr = useDataTableLocationsSvr(params, { setData, setRowCount }, [refreshKey])
-  const dataTableLocationsSvrExport = useAction(getDataTableLocationsSvrClient)
-  const deleteLocationAction = useAction(deleteLocation)
-  const restoreLocationAction = useAction(restoreLocation)
 
   const isLoading = dataTableLocationsSvr.isLoading
+
+  //* ids are kept across pages, so no rows need to be loaded
+  const rowSelection = table.getState().rowSelection
+  const selectedIds = Object.keys(rowSelection).filter((id) => rowSelection[id])
+
+  const selectableCount = Math.min(table.getRowCount(), LABEL_MAX_COUNT)
+  const isAllSelected = selectedIds.length > 0 && selectedIds.length >= selectableCount
+
+  //* ticks every row matching the current search and filters, up to one pdf's worth
+  const handleSelectAll = async () => {
+    try {
+      const response = await selectAllAction.executeAsync({ ...params, isExport: true })
+      const rows = response?.data?.data
+
+      if (!rows) {
+        toast.error('Failed to select locations!')
+        return
+      }
+
+      const ids = rows.filter((row) => !row.deletedAt).map((row) => row.id)
+
+      if (ids.length > LABEL_MAX_COUNT) {
+        toast.info(
+          `Selected the first ${LABEL_MAX_COUNT.toLocaleString('en-US')} of ${ids.length.toLocaleString('en-US')}, the most labels one PDF can hold.`
+        )
+      }
+
+      table.setRowSelection(Object.fromEntries(ids.slice(0, LABEL_MAX_COUNT).map((id) => [id, true])))
+    } catch (err: any) {
+      logger.error(err, '[SELECT_ALL_LOCATIONS_ERROR]:')
+      toast.error('Something went wrong! Please try again later.')
+    }
+  }
+
+  const handleLabelView = async (size: LabelSize) => {
+    const target = labelModal.target
+    if (!target) return
+
+    if (target.mode === 'single') {
+      window.open(getLocationLabelPdfHref(target.code, size), '_blank')
+      labelModal.close()
+      return
+    }
+
+    if (await labelsPdf.open(selectedIds, size, false)) labelModal.close()
+  }
+
+  const handleLabelDownload = async (size: LabelSize) => {
+    const target = labelModal.target
+    if (!target) return
+
+    if (target.mode === 'single') {
+      window.location.assign(getLocationLabelPdfHref(target.code, size, true))
+      labelModal.close()
+      return
+    }
+
+    if (await labelsPdf.open(selectedIds, size, true)) labelModal.close()
+  }
 
   const handleExport = async () => {
     const visibleColumns = table.getVisibleLeafColumns().filter((column) => column.id !== 'actions' && column.columnDef.meta?.exportValue)
@@ -285,6 +394,12 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
         if (!response || !result) throw { message: 'Failed to delete location!', unExpectedError: true }
 
         if (!result.error) {
+          //* a deleted row can't print, so drop it from the ticks
+          table
+            .getRowModel()
+            .rows.find((row) => row.original.code === code)
+            ?.toggleSelected(false)
+
           refetch()
 
           return result.message
@@ -334,6 +449,29 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
           <div className='order-last flex w-full justify-center lg:hidden'>
             <DataTablePagination table={table} isServerSide isCompact />
           </div>
+
+          {selectedIds.length > 0 && (
+            <CanView subject={PERMISSIONS_CODES.LOCATIONS} action={PERMISSIONS_ALLOWED_ACTIONS.VIEW}>
+              <ButtonGroup>
+                <TooltipWrapper label='Print Labels'>
+                  <LoadingButton
+                    type='button'
+                    variant='outline-primary'
+                    isLoading={labelsPdf.isLoading}
+                    onClick={() => labelModal.open({ mode: 'bulk' })}
+                  >
+                    <Icons.qrCode /> Print {selectedIds.length} {selectedIds.length === 1 ? 'Label' : 'Labels'}
+                  </LoadingButton>
+                </TooltipWrapper>
+
+                <TooltipWrapper label='Clear Selection'>
+                  <Button type='button' variant='outline-primary' size='icon' onClick={() => table.resetRowSelection()}>
+                    <Icons.x />
+                  </Button>
+                </TooltipWrapper>
+              </ButtonGroup>
+            </CanView>
+          )}
 
           <CanView subject={PERMISSIONS_CODES.LOCATIONS} action={PERMISSIONS_ALLOWED_ACTIONS.CREATE}>
             <TooltipWrapper label='Generate Locations'>
@@ -409,6 +547,21 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
         onConfirm={handleConfirmRestore}
         onConfirmText='Restore'
         onCancel={restoreConfirm.close}
+      />
+
+      <LabelSizeModal
+        isOpen={labelModal.isOpen}
+        title={labelModal.target?.mode === 'single' ? 'Print Label' : 'Print Labels'}
+        isBulk={labelModal.target?.mode === 'bulk'}
+        description={
+          labelModal.target?.mode === 'single'
+            ? `QR label for "${labelModal.target.code}"`
+            : `QR labels for ${selectedIds.length} selected ${selectedIds.length === 1 ? 'location' : 'locations'}, up to ${LABEL_MAX_COUNT.toLocaleString('en-US')} per PDF`
+        }
+        isLoading={labelsPdf.isLoading}
+        onClose={labelModal.close}
+        onView={handleLabelView}
+        onDownload={handleLabelDownload}
       />
     </div>
   )

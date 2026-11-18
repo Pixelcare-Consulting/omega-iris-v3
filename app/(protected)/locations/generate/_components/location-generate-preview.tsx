@@ -18,7 +18,7 @@ import { Icons } from '@/components/icons'
 
 export type PreviewStatus = 'CREATE' | 'EXISTS' | 'DELETED' | 'REPEATED' | 'UNTICKED'
 
-type PreviewRow = GeneratedLocation & { id: string; status: PreviewStatus }
+type PreviewRow = GeneratedLocation & { id: string; line: number; status: PreviewStatus }
 
 type PreviewFilter = 'ALL' | 'CREATE' | 'SKIPPED'
 
@@ -62,6 +62,7 @@ export default function LocationGeneratePreview({
       rows.map((row, index) => ({
         ...row,
         id: `${row.lineIndex}-${index}-${row.code}`,
+        line: row.lineIndex + 1,
         status: getPreviewStatus(row, existing, excluded)
       })),
     [rows, existing, excluded]
@@ -105,6 +106,11 @@ export default function LocationGeneratePreview({
             </div>
           )
         }
+      },
+      {
+        accessorKey: 'line',
+        header: ({ column }) => <DataTableColumnHeader column={column} title='Line' />,
+        cell: ({ row: { original } }) => <DataTableTextCell value={String(original.line)} />
       },
       {
         accessorKey: 'code',
@@ -155,11 +161,18 @@ export default function LocationGeneratePreview({
   )
 
   //* stay on the page while unticking
-  const { table } = useDataTableClient({ data, columns, getRowId: (row) => row.id, autoResetPageIndex: false })
+  const { table } = useDataTableClient({
+    data,
+    columns,
+    getRowId: (row) => row.id,
+    autoResetPageIndex: false,
+    initialState: { sorting: [{ id: 'line', desc: false }] }
+  })
 
   //* a changed run or filter starts at page one, unticks don't
   const runKey = useMemo(() => rows.map((row) => row.code).join('|'), [rows])
 
+  //* back to page one when the run or filter changes
   useEffect(() => {
     table.setPageIndex(0)
   }, [runKey, filter, table])

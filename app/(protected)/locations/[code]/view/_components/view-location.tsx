@@ -15,6 +15,10 @@ import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { LabelSize } from '@/constants/label'
+import { getLocationLabelPdfHref } from '@/lib/location'
+import { useDisclosure } from '@/hooks/use-disclosure'
+import LabelSizeModal from '@/components/label-size-modal'
 
 type ViewLocationProps = { location: LocationWithRelations }
 
@@ -27,6 +31,18 @@ export default function ViewLocation({ location }: ViewLocationProps) {
 
   const tabParam = searchParams.get('tab')
   const activeTab = tabParam && TABS_CONTENT_VALUE.includes(tabParam) ? tabParam : DEFAULT_TAB
+
+  const labelModal = useDisclosure()
+
+  const handleLabelView = (size: LabelSize) => {
+    window.open(getLocationLabelPdfHref(location.code, size), '_blank')
+    labelModal.onClose()
+  }
+
+  const handleLabelDownload = (size: LabelSize) => {
+    window.location.assign(getLocationLabelPdfHref(location.code, size, true))
+    labelModal.onClose()
+  }
 
   return (
     <div className='flex h-full w-full flex-1 flex-col gap-5'>
@@ -58,6 +74,12 @@ export default function ViewLocation({ location }: ViewLocationProps) {
                   <Icons.pencil /> Edit
                 </DropdownMenuItem>
               </CanView>
+
+              <CanView subject={PERMISSIONS_CODES.LOCATIONS} action={PERMISSIONS_ALLOWED_ACTIONS.VIEW}>
+                <DropdownMenuItem onClick={labelModal.onOpen}>
+                  <Icons.qrCode /> Print Label
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -82,6 +104,15 @@ export default function ViewLocation({ location }: ViewLocationProps) {
           <LocationOverviewTab location={location} />
         </TabsContent>
       </Tabs>
+
+      <LabelSizeModal
+        isOpen={labelModal.isOpen}
+        title='Print Label'
+        description={`QR label for "${location.code}"`}
+        onClose={labelModal.onClose}
+        onView={handleLabelView}
+        onDownload={handleLabelDownload}
+      />
     </div>
   )
 }

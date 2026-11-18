@@ -11,6 +11,7 @@ import Copy from '@/components/copy'
 import RecordMetaData from '@/components/record-meta-data'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LOCATION_TYPE_LABELS } from '@/constants/location'
+import { QRCodeSVG } from 'qrcode.react'
 
 type LocationOverviewTabProps = { location: LocationWithRelations }
 
@@ -24,18 +25,31 @@ export default function LocationOverviewTab({ location }: LocationOverviewTabPro
             <Separator className='mt-4' />
           </Column>
 
-          <Column md={6} lg={3}>
-            <ReadOnlyField title='Code' value={location.code}>
-              <Copy value={location.code} />
-            </ReadOnlyField>
-          </Column>
+          {/* //* qr tile on the left at its own size, fields take the rest */}
+          <Column>
+            <div className='flex flex-col gap-5 md:flex-row md:items-start'>
+              {/* //* white backing so it still scans in dark mode */}
+              <div className='flex w-fit shrink-0 flex-col items-center gap-2 rounded-xl border bg-white p-3 text-black'>
+                <QRCodeSVG value={location.code} level='M' marginSize={4} size={160} title={location.code} />
+                <span className='font-mono text-sm font-semibold'>{location.code}</span>
+              </div>
 
-          <Column md={6} lg={3}>
-            <ReadOnlyField title='Name' value={location.name} />
-          </Column>
+              <Row className='min-w-0 flex-1' gap={5}>
+                <Column md={6}>
+                  <ReadOnlyField title='Code' value={location.code}>
+                    <Copy value={location.code} />
+                  </ReadOnlyField>
+                </Column>
 
-          <Column md={6} lg={3}>
-            <ReadOnlyField title='Type' value={location.type ? LOCATION_TYPE_LABELS[location.type] : null} />
+                <Column md={6}>
+                  <ReadOnlyField title='Name' value={location.name} />
+                </Column>
+
+                <Column md={6}>
+                  <ReadOnlyField title='Type' value={location.type ? LOCATION_TYPE_LABELS[location.type] : null} />
+                </Column>
+              </Row>
+            </div>
           </Column>
 
           <Column>
@@ -71,7 +85,7 @@ export default function LocationOverviewTab({ location }: LocationOverviewTabPro
           <Column md={6} lg={3}>
             <ReadOnlyField
               title='Active'
-              description='Inactive locations are hidden from selection'
+              description="Inactive locations don't show up in pickers"
               value={location.isActive ? 'Yes' : 'No'}
             />
           </Column>
