@@ -1,7 +1,6 @@
 'use client'
 
-import { ItemMasterWithRelations } from '@/actions/item-master'
-import RelationLink from '@/components/relation-link'
+import { ItemMasterRow } from '@/actions/item-master'
 import { Row } from '@/components/row'
 import { Column } from '@/components/column'
 import ContentWrapper from '@/components/content-wrapper'
@@ -13,18 +12,18 @@ import RecordMetaData from '@/components/record-meta-data'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import ItemMasterThumbnail from '@/app/(protected)/item-masters/_components/item-master-thumbnail'
 import { buildFileAttachmentUrl } from '@/lib/file-attachment'
+import { formatDate } from '@/lib/utils'
+import SapSyncStatusBadge from '@/components/sap-sync-status-badge'
 
-type ItemMasterOverviewTabProps = { itemMaster: ItemMasterWithRelations }
-
-type Reference = { code: string; name: string; isActive: boolean; deletedAt: Date | null }
+type ItemMasterOverviewTabProps = { itemMaster: ItemMasterRow }
 
 //* fills the column as a square, like the form's tile
 const THUMBNAIL_TILE_CLASS_NAME = 'bg-muted/50 aspect-square h-auto w-full rounded-xl object-contain'
 
-const toStatusSuffix = (reference: Reference) => (reference.deletedAt ? ' (Deleted)' : !reference.isActive ? ' (Inactive)' : '')
+const toCodeLabel = (code: number | null, name: string | null) => (code !== null ? `${code} - ${name ?? ''}` : '')
 
 export default function ItemMasterOverviewTab({ itemMaster }: ItemMasterOverviewTabProps) {
-  const { manufacturer, commodity, thumbnail } = itemMaster
+  const { thumbnail } = itemMaster
 
   return (
     <ContentWrapper className='h-full'>
@@ -40,56 +39,32 @@ export default function ItemMasterOverviewTab({ itemMaster }: ItemMasterOverview
             {/* //* opens the full image, the placeholder has nothing to open */}
             {thumbnail ? (
               <a href={buildFileAttachmentUrl(thumbnail)} target='_blank' rel='noreferrer' className='flex flex-col gap-2'>
-                <ItemMasterThumbnail id={thumbnail} alt={itemMaster.code} className={THUMBNAIL_TILE_CLASS_NAME} />
+                <ItemMasterThumbnail id={thumbnail} alt={itemMaster.ItemCode} className={THUMBNAIL_TILE_CLASS_NAME} />
                 <span className='text-muted-foreground text-center text-xs'>Click to open the full image</span>
               </a>
             ) : (
-              <ItemMasterThumbnail alt={itemMaster.code} className={THUMBNAIL_TILE_CLASS_NAME} />
+              <ItemMasterThumbnail alt={itemMaster.ItemCode} className={THUMBNAIL_TILE_CLASS_NAME} />
             )}
           </Column>
 
           <Column md={8} lg={9}>
             <Row gap={5}>
               <Column md={6}>
-                <ReadOnlyField title='MFG P/N' value={itemMaster.code}>
-                  <Copy value={itemMaster.code} />
+                <ReadOnlyField title='MFG P/N' value={itemMaster.ItemCode}>
+                  <Copy value={itemMaster.ItemCode} />
                 </ReadOnlyField>
               </Column>
 
               <Column md={6}>
-                <ReadOnlyField
-                  title='Manufacturer'
-                  value={
-                    manufacturer ? (
-                      <RelationLink href={`/manufacturers/${manufacturer.code}/view`}>
-                        {manufacturer.code} - {manufacturer.name}
-                        {toStatusSuffix(manufacturer)}
-                      </RelationLink>
-                    ) : (
-                      ''
-                    )
-                  }
-                />
+                <ReadOnlyField title='Manufacturer' value={toCodeLabel(itemMaster.FirmCode, itemMaster.FirmName)} />
               </Column>
 
               <Column md={6}>
-                <ReadOnlyField title='Description' value={itemMaster.description} />
+                <ReadOnlyField title='Description' value={itemMaster.ItemName} />
               </Column>
 
               <Column md={6}>
-                <ReadOnlyField
-                  title='Commodity'
-                  value={
-                    commodity ? (
-                      <RelationLink href={`/commodities/${commodity.code}/view`}>
-                        {commodity.code} - {commodity.name}
-                        {toStatusSuffix(commodity)}
-                      </RelationLink>
-                    ) : (
-                      ''
-                    )
-                  }
-                />
+                <ReadOnlyField title='Group' value={toCodeLabel(itemMaster.ItmsGrpCod, itemMaster.ItmsGrpNam)} />
               </Column>
 
               <Column>
@@ -110,6 +85,25 @@ export default function ItemMasterOverviewTab({ itemMaster }: ItemMasterOverview
               value={itemMaster.isActive ? 'Yes' : 'No'}
             />
           </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='SAP Sync' description="Item's link with SAP" />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Sync Status' value={<SapSyncStatusBadge status={itemMaster.syncStatus} />} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Synced At' value={itemMaster.syncedAt ? formatDate(itemMaster.syncedAt, 'MMM dd, yyyy hh:mm a') : ''} />
+          </Column>
+
+          {itemMaster.syncError && (
+            <Column>
+              <ReadOnlyField title='Last Sync Error' value={itemMaster.syncError} />
+            </Column>
+          )}
 
           <Column>
             <Separator className='mt-3 mb-4' />

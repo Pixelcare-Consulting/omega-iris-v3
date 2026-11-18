@@ -1,8 +1,13 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAction } from 'next-safe-action/hooks'
+import { toast } from 'sonner'
 
-import { ItemMasterWithRelations } from '@/actions/item-master'
+import { syncItemMastersToSap } from '@/actions/item-master-sync'
+import LoadingButton from '@/components/forms/button-field'
+import { logger } from '@/lib/logger'
+import { ItemMasterRow } from '@/actions/item-master'
 import Header from '@/components/header'
 import { Icons } from '@/components/icons'
 import { TooltipWrapper } from '@/components/tooltip-wrapper'
@@ -16,7 +21,7 @@ import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
-type ViewItemMasterProps = { itemMaster: ItemMasterWithRelations }
+type ViewItemMasterProps = { itemMaster: ItemMasterRow }
 
 export default function ViewItemMaster({ itemMaster }: ViewItemMasterProps) {
   const TABS_TITLE = ['Overview'] as const
@@ -28,15 +33,50 @@ export default function ViewItemMaster({ itemMaster }: ViewItemMasterProps) {
   const tabParam = searchParams.get('tab')
   const activeTab = tabParam && TABS_CONTENT_VALUE.includes(tabParam) ? tabParam : DEFAULT_TAB
 
+  const syncAction = useAction(syncItemMastersToSap)
+
+  //* the first error entry is the one to show, the row keeps sap's message too
+  const handleSyncToSap = async () => {
+    try {
+      const response = await syncAction.executeAsync({ ids: [itemMaster.id] })
+      const result = response?.data
+
+      if (!result || result.error || !result.data) {
+        toast.error(result?.message ?? 'Failed to sync to SAP!')
+        return
+      }
+
+      const error = result.data.errors[0]
+
+      if (error) toast.error(error.entries.map((entry) => `${entry.field}: ${entry.message}`).join(' '))
+      else toast.success('Item master synced to SAP!')
+
+      router.refresh()
+    } catch (err: any) {
+      logger.error(err, '[VIEW_ITEM_MASTER_SYNC_TO_SAP_ERROR]:')
+      toast.error('Something went wrong! Please try again later.')
+    }
+  }
+
   return (
     <div className='flex h-full w-full flex-1 flex-col gap-5'>
-      <Header title='Item Master' description='Manage your items, their manufacturer, commodity and thumbnail'>
+      <Header title='Item Master' description='Manage your items and their link with SAP'>
         <div className='ml-auto flex items-center gap-2'>
           <TooltipWrapper label='Back'>
             <Button type='button' variant='outline' onClick={() => router.push('/item-masters')}>
               <Icons.arrowLeft /> Back
             </Button>
           </TooltipWrapper>
+
+          {itemMaster.syncStatus !== 'SYNCED' && (
+            <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.SYNC_TO_SAP}>
+              <TooltipWrapper label='Sync to SAP'>
+                <LoadingButton type='button' variant='outline-primary' isLoading={syncAction.isExecuting} onClick={handleSyncToSap}>
+                  <Icons.upload /> Sync to SAP
+                </LoadingButton>
+              </TooltipWrapper>
+            </CanView>
+          )}
 
           <DropdownMenu>
             <TooltipWrapper label='More Options'>
@@ -54,7 +94,7 @@ export default function ViewItemMaster({ itemMaster }: ViewItemMasterProps) {
               </CanView>
 
               <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                <DropdownMenuItem onClick={() => router.push(`/item-masters/${encodeURIComponent(itemMaster.code)}`)}>
+                <DropdownMenuItem onClick={() => router.push(`/item-masters/${encodeURIComponent(itemMaster.ItemCode)}`)}>
                   <Icons.pencil /> Edit
                 </DropdownMenuItem>
               </CanView>

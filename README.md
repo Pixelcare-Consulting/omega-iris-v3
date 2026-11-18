@@ -71,6 +71,7 @@ SAP_BASE_URL="https://<sap-host>:50000"
 SAP_USERNAME="<service-account>"
 SAP_PASSWORD="<service-account-password>"
 SAP_TLS_REJECT_UNAUTHORIZED="false"
+SYNC_LOOKBACK_DAYS=2
 ```
 
 | Variable                        | Required | Description                                                                                               |
@@ -88,6 +89,7 @@ SAP_TLS_REJECT_UNAUTHORIZED="false"
 | `SAP_USERNAME`                  | yes      | The one SAP service account every portal user shares                                                      |
 | `SAP_PASSWORD`                  | yes      | Password of that service account                                                                          |
 | `SAP_TLS_REJECT_UNAUTHORIZED`   | no       | Set to `true` to check the Service Layer TLS cert, defaults to `false` because most installs self-sign it |
+| `SYNC_LOOKBACK_DAYS`            | no       | Days before the last sync that a SAP pull re-reads, defaults to `2`                                       |
 
 Anything prefixed `NEXT_PUBLIC_` ships to the browser - keep secrets out of it.
 

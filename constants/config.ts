@@ -3,7 +3,7 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from './permission'
 
 export const APP_CONFIG = {
   name: 'Iris',
-  fullName: 'Omega Iris Inventory & Warehouse Management System',
+  fullName: 'Omega Immediate Response Inventory System',
   description: 'Inventory, warehouse, and barcoding system for Omega.',
   creator: 'PXC Dev Team',
   features: [
@@ -24,7 +24,7 @@ export const APP_CONFIG = {
   },
   signin: {
     subtitle: 'Enter your credentials to access your account',
-    logoSubtitle: 'Inventory Management System',
+    logoSubtitle: 'Immediate Response Inventory System',
     eyebrow: 'OMEGA IRIS · INVENTORY & WMS',
     title: 'Your inventory,',
     titleHighlight: 'under control.',
@@ -82,40 +82,31 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.handshake,
         items: [
-          { title: 'Customers', url: '/customers', icon: Icons.contact, items: [] },
-          { title: 'Vendors', url: '/vendors', icon: Icons.store, items: [] }
-        ]
-      },
-      {
-        title: 'Products',
-        url: '',
-        icon: Icons.package,
-        items: [
           {
-            title: 'Manufacturers',
-            url: '/manufacturers',
-            icon: Icons.factory,
+            title: 'Customers',
+            url: '/customers',
+            icon: Icons.contact,
             items: [],
-            subjects: PERMISSIONS_CODES.MANUFACTURERS,
+            subjects: PERMISSIONS_CODES.CUSTOMERS,
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
           {
-            title: 'Commodities',
-            url: '/commodities',
-            icon: Icons.shapes,
+            title: 'Vendors',
+            url: '/vendors',
+            icon: Icons.store,
             items: [],
-            subjects: PERMISSIONS_CODES.COMMODITIES,
-            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
-          },
-          {
-            title: 'Item Master',
-            url: '/item-masters',
-            icon: Icons.barcode,
-            items: [],
-            subjects: PERMISSIONS_CODES.ITEM_MASTERS,
+            subjects: PERMISSIONS_CODES.VENDORS,
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           }
         ]
+      },
+      {
+        title: 'Item Master',
+        url: '/item-masters',
+        icon: Icons.barcode,
+        items: [],
+        subjects: PERMISSIONS_CODES.ITEM_MASTERS,
+        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
       },
       {
         title: 'Warehouse',
@@ -138,7 +129,14 @@ export const MENU_GROUPS: MenuGroup[] = [
             subjects: PERMISSIONS_CODES.PROCESS_ZONES,
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
-          { title: 'Locations', url: '/locations', icon: Icons.mapPin, items: [] }
+          {
+            title: 'Locations',
+            url: '/locations',
+            icon: Icons.mapPin,
+            items: [],
+            subjects: PERMISSIONS_CODES.LOCATIONS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          }
         ]
       },
       {
@@ -146,8 +144,22 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.boxes,
         items: [
-          { title: 'Pallets', url: '/pallets', icon: Icons.layers, items: [] },
-          { title: 'Containers', url: '/containers', icon: Icons.container, items: [] },
+          {
+            title: 'Pallets',
+            url: '/pallets',
+            icon: Icons.layers,
+            items: [],
+            subjects: PERMISSIONS_CODES.PALLETS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Containers',
+            url: '/containers',
+            icon: Icons.container,
+            items: [],
+            subjects: PERMISSIONS_CODES.CONTAINERS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
           { title: 'MPN / Unique ID', url: '/mpn', icon: Icons.fingerprint, items: [] },
           { title: 'Inbound', url: '/inbound', icon: Icons.packageOpen, items: [] },
           { title: 'Outbound', url: '/outbound', icon: Icons.truck, items: [] },
@@ -161,7 +173,7 @@ export const MENU_GROUPS: MenuGroup[] = [
         icon: Icons.folderKanban,
         items: [
           {
-            title: 'Category',
+            title: 'Project Categories',
             url: '/project-categories',
             icon: Icons.tags,
             items: [],
@@ -169,7 +181,7 @@ export const MENU_GROUPS: MenuGroup[] = [
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
           {
-            title: 'Customer Project',
+            title: 'Customer Projects',
             url: '/customer-projects',
             icon: Icons.folderOpen,
             items: [],

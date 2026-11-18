@@ -28,11 +28,14 @@ export function DataTable<TData>({ table, isLoading, isServerSide, getRowClassNa
   const hasRows = !isLoading && table.getRowModel().rows.length > 0
 
   //* this div must fill whatever height the parent gives it
-  //* px-2.5 keeps the scrollbar from being hidden
   //* with no rows the scroll area only holds the header, the placeholder below takes the rest and centers in it
+  //! z-20 keeps the scrollbar above pinned columns, they would cover it
   return (
     <div className='flex min-h-0 flex-1 flex-col gap-2.5 rounded-md border'>
-      <ScrollArea className={cn('min-h-0 px-2', hasRows ? 'flex-1' : 'shrink-0')} type='auto'>
+      <ScrollArea
+        className={cn('min-h-0 rounded-t-md *:data-[slot=scroll-area-scrollbar]:z-20', hasRows ? 'flex-1' : 'shrink-0')}
+        type='auto'
+      >
         <Table className='text-sm'>
           {hasRows && (
             //* dark class flips the header buttons and checkbox to their dark styles
@@ -43,7 +46,7 @@ export function DataTable<TData>({ table, isLoading, isServerSide, getRowClassNa
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className='text-white'
+                      className='text-white has-[[role=checkbox]]:pl-0'
                       style={{
                         ...getCommonPinningStyles({ column: header.column, withBorder: true }),
                         //! pinning styles set a background, override it so pinned headers stay black
@@ -67,6 +70,7 @@ export function DataTable<TData>({ table, isLoading, isServerSide, getRowClassNa
                   {row.getVisibleCells().map((cell) => (
                     <TableCell
                       key={cell.id}
+                      className='has-[[role=checkbox]]:pl-0'
                       style={{
                         ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
                         minWidth: cell.column.columnDef.minSize,

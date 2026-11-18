@@ -5,7 +5,7 @@ import axios from 'axios'
 import { logger } from '@/lib/logger'
 import { REQUEST_TIMEOUT, SAP_DEFAULT_PAGE_SIZE } from '@/constants/sap'
 import { SapQuery, SapResult } from '@/types/sap'
-import { getSapConfig, getSapHttpsAgent, toCookieHeader } from './client'
+import { getSapConfig, getSapHttpsAgent, toCookieHeader, toSapErrorMessage } from './client'
 import { getSapSession, invalidateSapSession } from './session'
 import { SAP_ENDPOINTS, SapBodyOf, SapCollectionKey, SapEndpointKey, SapItemOf, SapMethod, SapParamsOf, SapResponseOf } from './endpoints'
 
@@ -22,7 +22,7 @@ type Attempt<T> = { result: SapResult<T>; isSessionRejected: boolean; usedB1Sess
 function isSessionRejected(err: any) {
   const status = err?.response?.status
   const sapCode = String(err?.response?.data?.error?.code ?? '')
-  const sapMessage = String(err?.response?.data?.error?.message?.value ?? '')
+  const sapMessage = toSapErrorMessage(err?.response?.data?.error)
 
   if (status === 401) return true
   if (sapCode === '301' || sapCode === '-2001') return true
@@ -103,7 +103,7 @@ async function sendNow<T>(dbCode: string, req: SapRequest): Promise<Attempt<T>> 
       ok: false,
       status: response?.status ?? 0,
       code: sapError?.code !== undefined ? String(sapError.code) : (err?.code ?? 'SAP_REQUEST_FAILED'),
-      message: sapError?.message?.value || err?.message || 'Failed to call SAP Service Layer.'
+      message: toSapErrorMessage(sapError) || err?.message || 'Failed to call SAP Service Layer.'
     }
 
     return { result, isSessionRejected: isSessionRejected(err), usedB1Session }

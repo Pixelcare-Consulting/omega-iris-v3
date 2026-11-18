@@ -2,39 +2,59 @@
 
 import { action, authenticationMiddleware, tenantMiddleware } from '@/lib/safe-action'
 import db from '@/lib/db'
-import { Prisma } from '@/prisma/generated/client'
+import { ItemMaster, Prisma } from '@/prisma/generated/client'
 import { DataTableParams, dataTableParamsSchema } from '@/schema/data-table'
 import { buildColumnFiltersWhere, buildGlobalFilterWhere, buildOrderBy, getDataTableParams } from '@/lib/data-table'
 import { PModels } from '@/types/prisma'
 import { codeParamsSchema } from '@/schema/common'
 import { logger } from '@/lib/logger'
 import { getDisk } from '@/lib/storage'
-import { itemMasterFormSchema, itemMasterThumbnailSchema } from '@/schema/item-master'
+import { ItemMasterForm, itemMasterFormSchema, itemMasterThumbnailSchema } from '@/schema/item-master'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { FILE_ATTACHMENT_MODULES } from '@/constants/file-attachment'
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
+import { sapFetch } from '@/lib/sap/service-layer'
+import { SapItemGroup, SapManufacturer } from '@/types/sap'
 
-const REFERENCE_SELECT = { code: true, name: true, isActive: true, deletedAt: true } as const
+export type ItemMasterRow = ItemMaster
 
-const COMMON_ITEM_MASTER_INCLUDE = {
-  manufacturer: { select: REFERENCE_SELECT },
-  commodity: { select: REFERENCE_SELECT }
-} satisfies Prisma.ItemMasterInclude
+export type ItemMasterLookups = { itemGroups: SapItemGroup[]; manufacturers: SapManufacturer[]; isError: boolean }
 
-export type ItemMasterWithRelations = Prisma.ItemMasterGetPayload<{ include: typeof COMMON_ITEM_MASTER_INCLUDE }>
+//* sap owns these once an item is synced
+const SAP_OWNED_FIELDS = ['ItemCode', 'ItemName', 'FirmCode', 'ItmsGrpCod'] as const
 
-export async function getItemMasterByCode(dbCode: string | null, code?: string | null) {
-  if (!dbCode || !code) return null
+export async function getItemMasterByCode(dbCode: string | null, itemCode?: string | null) {
+  if (!dbCode || !itemCode) return null
 
   try {
     //* a soft-deleted item must be restored before it can be viewed or edited again
-    return await db.itemMaster.findFirst({ where: { dbCode, code, deletedAt: null }, include: COMMON_ITEM_MASTER_INCLUDE })
+    return await db.itemMaster.findFirst({ where: { dbCode, ItemCode: itemCode, deletedAt: null } })
   } catch (err: any) {
     logger.error(err, '[GET_ITEM_MASTER_BY_CODE_ERROR]:')
     return null
   }
 }
+
+//* isError lets a caller tell a failed lookup from an empty one
+export async function getItemMasterLookups(dbCode: string): Promise<ItemMasterLookups> {
+  const [itemGroups, manufacturers] = await Promise.all([
+    sapFetch(dbCode, 'itemGroups.list', { query: { $select: 'Number,GroupName', $orderby: 'GroupName' } }),
+    sapFetch(dbCode, 'manufacturers.list', { query: { $select: 'Code,ManufacturerName', $orderby: 'ManufacturerName' } })
+  ])
+
+  //* sapFetch already logs a failed call
+  return {
+    itemGroups: itemGroups.ok ? itemGroups.data.value : [],
+    manufacturers: manufacturers.ok ? manufacturers.data.value : [],
+    isError: !itemGroups.ok || !manufacturers.ok
+  }
+}
+
+export const getItemMasterLookupsClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .action(async ({ ctx }) => getItemMasterLookups(ctx.dbCode))
 
 export async function getDataTableItemMastersSvr(dbCode: string, params: DataTableParams) {
   const { perPage, offset, globalFilter, sorting, columnFilters, isExport, isShowDeleted } = getDataTableParams(params)
@@ -47,12 +67,8 @@ export async function getDataTableItemMastersSvr(dbCode: string, params: DataTab
   //* global filter
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
-      stringFields: ['code', 'description', 'notes', 'manufacturerCode', 'commodityCode'],
-      booleanFields: [{ field: 'isActive' }],
-      relationFields: [
-        { relation: 'manufacturer', fields: ['name'], relationNullable: true },
-        { relation: 'commodity', fields: ['name'], relationNullable: true }
-      ]
+      stringFields: ['ItemCode', 'ItemName', 'FirmName', 'ItmsGrpNam', 'notes'],
+      booleanFields: [{ field: 'isActive' }]
     })
 
     Object.assign(where, filter)
@@ -63,12 +79,9 @@ export async function getDataTableItemMastersSvr(dbCode: string, params: DataTab
     const currentFilters = where.AND as Prisma.ItemMasterWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      stringFields: [
-        { field: 'manufacturerCode', nullable: true },
-        { field: 'commodityCode', nullable: true }
-      ],
+      stringFields: ['syncStatus', { field: 'FirmName', nullable: true }, { field: 'ItmsGrpNam', nullable: true }],
       booleanFields: [{ field: 'isActive' }],
-      dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
+      dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }, { field: 'syncedAt', nullable: true }]
     })
 
     where.AND = [...(currentFilters ?? []), ...filters]
@@ -79,12 +92,7 @@ export async function getDataTableItemMastersSvr(dbCode: string, params: DataTab
 
   try {
     const [data, rowCount] = await db.$transaction([
-      db.itemMaster.findMany({
-        where,
-        include: COMMON_ITEM_MASTER_INCLUDE,
-        ...(isExport ? {} : { skip: offset, take: perPage }),
-        orderBy
-      }),
+      db.itemMaster.findMany({ where, ...(isExport ? {} : { skip: offset, take: perPage }), orderBy }),
       db.itemMaster.count({ where })
     ])
 
@@ -101,13 +109,35 @@ export const getDataTableItemMastersSvrClient = action
   .inputSchema(dataTableParamsSchema)
   .action(async ({ ctx, parsedInput }) => getDataTableItemMastersSvr(ctx.dbCode, parsedInput))
 
+//* names the picked codes from sap, null when sap is unreachable
+async function resolveSapNames(dbCode: string, data: Pick<ItemMasterForm, 'FirmCode' | 'ItmsGrpCod'>) {
+  const lookups = await getItemMasterLookups(dbCode)
+
+  if (lookups.isError) return null
+
+  const manufacturer = data.FirmCode !== null ? lookups.manufacturers.find((m) => m.Code === data.FirmCode) : null
+  const itemGroup = data.ItmsGrpCod !== null ? lookups.itemGroups.find((g) => g.Number === data.ItmsGrpCod) : null
+
+  const unavailable: DuplicateFields = []
+
+  if (data.FirmCode !== null && !manufacturer) {
+    unavailable.push({ field: 'FirmCode', name: 'Manufacturer', message: 'Manufacturer is not available!' })
+  }
+
+  if (data.ItmsGrpCod !== null && !itemGroup) {
+    unavailable.push({ field: 'ItmsGrpCod', name: 'Group', message: 'Group is not available!' })
+  }
+
+  return { unavailable, FirmName: manufacturer?.ManufacturerName ?? null, ItmsGrpNam: itemGroup?.GroupName ?? null }
+}
+
 export const upsertItemMaster = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(itemMasterFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     //! thumbnail is left out, setItemMasterThumbnail owns it
-    const { id, thumbnail: _thumbnail, ...data } = parsedInput
+    const { id, thumbnail: _thumbnail, ...input } = parsedInput
     const { dbCode, userCode, ability } = ctx
     const actionTag = 'UPSERT_ITEM_MASTER'
     const isCreate = !id
@@ -119,64 +149,72 @@ export const upsertItemMaster = action
     }
 
     try {
-      //* deleted rows count too, the unique key includes them
-      const sameCodes = await db.itemMaster.findMany({
-        where: { dbCode, code: { equals: data.code, mode: 'insensitive' }, ...(id && { NOT: { id } }) }
-      })
-
-      const existingCode = findSameText(sameCodes, (row) => row.code, data.code)
-
-      const duplicates: DuplicateFields = []
-
-      if (existingCode) {
-        duplicates.push({ field: 'code', name: 'MFG P/N', message: toDuplicateMessage('MFG P/N', existingCode.deletedAt) })
-      }
-
-      if (duplicates.length > 0) {
-        const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
-        const message = toFieldListMessage(duplicates, 'already exists!', 'already exist!')
-        return { status: 401, error: true, message, action: actionTag, paths }
-      }
-
       const existing = isCreate ? null : await db.itemMaster.findFirst({ where: { id, dbCode, deletedAt: null } })
 
-      if (!isCreate && !existing) return { status: 404, error: true, message: 'Item not found!', action: actionTag }
+      if (!isCreate && !existing) return { status: 404, error: true, message: 'Item master not found!', action: actionTag }
 
-      //* only a changed pick is checked, keeping an inactive one is fine
-      const [manufacturer, commodity] = await Promise.all([
-        data.manufacturerCode && data.manufacturerCode !== existing?.manufacturerCode
-          ? db.manufacturer.findFirst({
-              where: { dbCode, code: data.manufacturerCode, deletedAt: null, isActive: true },
-              select: { id: true }
-            })
-          : true,
-        data.commodityCode && data.commodityCode !== existing?.commodityCode
-          ? db.commodity.findFirst({ where: { dbCode, code: data.commodityCode, deletedAt: null, isActive: true }, select: { id: true } })
-          : true
-      ])
+      const isSynced = existing?.syncStatus === 'SYNCED'
 
-      const unavailable: DuplicateFields = []
+      //* a synced item keeps its sap fields, whatever was sent
+      const data = isSynced ? { ...input, ...Object.fromEntries(SAP_OWNED_FIELDS.map((field) => [field, existing[field]])) } : input
 
-      if (!manufacturer) unavailable.push({ field: 'manufacturerCode', name: 'Manufacturer', message: 'Manufacturer is not available!' })
-      if (!commodity) unavailable.push({ field: 'commodityCode', name: 'Commodity', message: 'Commodity is not available!' })
+      //* deleted rows count too, the unique key includes them
+      if (!isSynced) {
+        const sameCodes = await db.itemMaster.findMany({
+          where: { dbCode, ItemCode: { equals: data.ItemCode, mode: 'insensitive' }, ...(id && { NOT: { id } }) }
+        })
 
-      if (unavailable.length > 0) {
-        const paths = unavailable.map((u) => ({ field: u.field, message: u.message }))
-        const message = toFieldListMessage(unavailable, 'is not available!', 'are not available!')
-        return { status: 401, error: true, message, action: actionTag, paths }
+        const existingCode = findSameText(sameCodes, (row) => row.ItemCode, data.ItemCode)
+
+        if (existingCode) {
+          const message = toDuplicateMessage('MFG P/N', existingCode.deletedAt)
+          return { status: 401, error: true, message, action: actionTag, paths: [{ field: 'ItemCode', message }] }
+        }
       }
 
-      //* update item
-      if (existing) {
-        const itemMaster = await db.itemMaster.update({ where: { id: existing.id }, data: { ...data, updatedBy: userCode } })
+      //* only a changed pick asks sap, keeping a code sap dropped is fine
+      const isPickChanged = !existing || existing.FirmCode !== data.FirmCode || existing.ItmsGrpCod !== data.ItmsGrpCod
+      const hasPicks = data.FirmCode !== null || data.ItmsGrpCod !== null
+      let names = { FirmName: existing?.FirmName ?? null, ItmsGrpNam: existing?.ItmsGrpNam ?? null }
 
-        return { status: 200, error: false, message: 'Item updated successfully!', action: actionTag, data: { itemMaster } }
+      //* blank pickers need no names, so sap is skipped
+      if (!isSynced && isPickChanged && !hasPicks) names = { FirmName: null, ItmsGrpNam: null }
+
+      if (!isSynced && isPickChanged && hasPicks) {
+        const resolved = await resolveSapNames(dbCode, data)
+
+        if (!resolved) return { status: 502, error: true, message: 'Could not load SAP manufacturers and groups', action: actionTag } // prettier-ignore
+
+        if (resolved.unavailable.length > 0) {
+          const paths = resolved.unavailable.map((u) => ({ field: u.field, message: u.message }))
+          const message = toFieldListMessage(resolved.unavailable, 'is not available!', 'are not available!')
+          return { status: 401, error: true, message, action: actionTag, paths }
+        }
+
+        names = { FirmName: resolved.FirmName, ItmsGrpNam: resolved.ItmsGrpNam }
+      }
+
+      //* update item, a failed one goes back to pending once edited
+      if (existing) {
+        const itemMaster = await db.itemMaster.update({
+          where: { id: existing.id },
+          data: {
+            ...data,
+            ...names,
+            ...(existing.syncStatus === 'FAILED' && { syncStatus: 'PENDING', syncError: null }),
+            updatedBy: userCode
+          }
+        })
+
+        return { status: 200, error: false, message: 'Item master updated successfully!', action: actionTag, data: { itemMaster } }
       }
 
       //* create item
-      const itemMaster = await db.itemMaster.create({ data: { ...data, dbCode, createdBy: userCode, updatedBy: userCode } })
+      const itemMaster = await db.itemMaster.create({
+        data: { ...data, ...names, dbCode, createdBy: userCode, updatedBy: userCode }
+      })
 
-      return { status: 200, error: false, message: 'Item created successfully!', action: actionTag, data: { itemMaster } }
+      return { status: 200, error: false, message: 'Item master created successfully!', action: actionTag, data: { itemMaster } }
     } catch (err: any) {
       logger.error(err, `[${actionTag}_ERROR]:`)
 
@@ -210,7 +248,7 @@ export const setItemMasterThumbnail = action
     try {
       const itemMaster = await db.itemMaster.findFirst({ where: { id, dbCode, deletedAt: null } })
 
-      if (!itemMaster) return { status: 404, error: true, message: 'Item not found!', action: actionTag }
+      if (!itemMaster) return { status: 404, error: true, message: 'Item master not found!', action: actionTag }
 
       if (itemMaster.thumbnail === thumbnail) {
         return { status: 200, error: false, message: 'Thumbnail saved!', action: actionTag, data: { itemMaster } }
@@ -266,14 +304,18 @@ export const deleteItemMaster = action
     }
 
     try {
-      const itemMaster = await db.itemMaster.findFirst({ where: { dbCode, code: parsedInput.code, deletedAt: null } })
+      const itemMaster = await db.itemMaster.findFirst({ where: { dbCode, ItemCode: parsedInput.code, deletedAt: null } })
 
-      if (!itemMaster) return { status: 404, error: true, message: 'Item not found!', action: actionTag }
+      if (!itemMaster) return { status: 404, error: true, message: 'Item master not found!', action: actionTag }
+
+      if (itemMaster.syncStatus === 'SYNCED') {
+        return { status: 409, error: true, message: "Synced item masters can't be deleted!", action: actionTag }
+      }
 
       //* the thumbnail stays, a restore brings it back
       await db.itemMaster.update({ where: { id: itemMaster.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
 
-      return { status: 200, error: false, message: 'Item deleted successfully!', action: actionTag }
+      return { status: 200, error: false, message: 'Item master deleted successfully!', action: actionTag }
     } catch (err: any) {
       logger.error(err, `[${actionTag}_ERROR]:`)
 
@@ -294,13 +336,13 @@ export const restoreItemMaster = action
     }
 
     try {
-      const itemMaster = await db.itemMaster.findFirst({ where: { dbCode, code: parsedInput.code } })
+      const itemMaster = await db.itemMaster.findFirst({ where: { dbCode, ItemCode: parsedInput.code } })
 
-      if (!itemMaster) return { status: 404, error: true, message: 'Item not found!', action: actionTag }
+      if (!itemMaster) return { status: 404, error: true, message: 'Item master not found!', action: actionTag }
 
       await db.itemMaster.update({ where: { id: itemMaster.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
 
-      return { status: 200, error: false, message: 'Item restored successfully!', action: actionTag }
+      return { status: 200, error: false, message: 'Item master restored successfully!', action: actionTag }
     } catch (err: any) {
       logger.error(err, `[${actionTag}_ERROR]:`)
 

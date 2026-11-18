@@ -7,7 +7,7 @@ import { useAction } from 'next-safe-action/hooks'
 import { FormProvider, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 
-import { ItemMasterWithRelations, setItemMasterThumbnail, upsertItemMaster } from '@/actions/item-master'
+import { ItemMasterRow, setItemMasterThumbnail, upsertItemMaster } from '@/actions/item-master'
 import { PageMetadata } from '@/types/common'
 import { type ItemMasterForm, itemMasterFormSchema } from '@/schema/item-master'
 import Header from '@/components/header'
@@ -34,28 +34,34 @@ import CanView from '@/components/rbac/can-view'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { FILE_ATTACHMENT_MODULES } from '@/constants/file-attachment'
 import { ComboboxField } from '@/components/forms/combobox-field'
-import { toFormOption, toFormOptions, withCurrentOption } from '@/lib/form'
+import { renderCodeItem } from '@/components/forms/combobox-item-content'
+import { withCurrentOption } from '@/lib/form'
 import { uploadFileAttachment } from '@/lib/file-attachment'
 import { StagedImages, StagedImagesContext } from '@/contexts/staged-images'
-import { useManufacturers } from '@/hooks/safe-actions/manufacturer'
-import { useCommodities } from '@/hooks/safe-actions/commodity'
+import { useItemMasterLookups } from '@/hooks/safe-actions/item-master'
+import Alert from '@/components/alert'
+import { ITEM_CODE_MAX_LENGTH } from '@/schema/item-master'
 
-type ItemMasterFormProps = { pageMetaData: PageMetadata; itemMaster: ItemMasterWithRelations | null }
+type ItemMasterFormProps = { pageMetaData: PageMetadata; itemMaster: ItemMasterRow | null }
 
-type SavedItemMaster = { id: string; code: string; thumbnail: string | null }
+type SavedItemMaster = { id: string; ItemCode: string; thumbnail: string | null }
 
 const DEFAULT_VALUES: ItemMasterForm = {
   id: null,
-  code: '',
-  description: '',
-  manufacturerCode: '',
-  commodityCode: '',
+  ItemCode: '',
+  ItemName: '',
+  FirmCode: null,
+  ItmsGrpCod: null,
   notes: '',
   thumbnail: null,
   isActive: true
 }
 
-const getReferenceLabel = (reference: { code: string; name: string }) => `${reference.code} - ${reference.name}`
+//* a stored code sap no longer lists stays selectable under its saved name
+function toCurrentOption(code: number | null | undefined, name: string | null | undefined) {
+  if (code === null || code === undefined) return null
+  return { value: String(code), label: `${name ?? code} (Not in SAP)` }
+}
 
 export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterFormProps) {
   const router = useRouter()
@@ -64,16 +70,19 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
 
   const isCreate = code === 'add' || !itemMaster
 
-  const values = useMemo(() => {
+  //* sap owns these once the item is synced
+  const isSynced = itemMaster?.syncStatus === 'SYNCED'
+
+  const values = useMemo<ItemMasterForm | undefined>(() => {
     if (itemMaster) {
-      const { id, code, description, manufacturerCode, commodityCode, notes, thumbnail, isActive } = itemMaster
+      const { id, ItemCode, ItemName, FirmCode, ItmsGrpCod, notes, thumbnail, isActive } = itemMaster
 
       return {
         id,
-        code,
-        description: description ?? '',
-        manufacturerCode: manufacturerCode ?? '',
-        commodityCode: commodityCode ?? '',
+        ItemCode,
+        ItemName: ItemName ?? '',
+        FirmCode,
+        ItmsGrpCod,
         notes: notes ?? '',
         thumbnail,
         isActive
@@ -83,19 +92,17 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
     if (isCreate) return DEFAULT_VALUES
   }, [isCreate, itemMaster])
 
-  const manufacturers = useManufacturers()
-  const commodities = useCommodities()
+  const lookups = useItemMasterLookups()
 
-  //* the pickers list active rows only, an item already on an inactive or deleted one keeps it selectable
   const manufacturerOptions = useMemo(() => {
-    const current = itemMaster?.manufacturer ? toFormOption(itemMaster.manufacturer, getReferenceLabel) : null
-    return withCurrentOption(toFormOptions(manufacturers.data, getReferenceLabel), current)
-  }, [manufacturers.data, itemMaster])
+    const options = lookups.data.manufacturers.map((m) => ({ value: String(m.Code), label: m.ManufacturerName }))
+    return lookups.isLoaded ? withCurrentOption(options, toCurrentOption(itemMaster?.FirmCode, itemMaster?.FirmName)) : options
+  }, [lookups.data.manufacturers, lookups.isLoaded, itemMaster])
 
-  const commodityOptions = useMemo(() => {
-    const current = itemMaster?.commodity ? toFormOption(itemMaster.commodity, getReferenceLabel) : null
-    return withCurrentOption(toFormOptions(commodities.data, getReferenceLabel), current)
-  }, [commodities.data, itemMaster])
+  const itemGroupOptions = useMemo(() => {
+    const options = lookups.data.itemGroups.map((g) => ({ value: String(g.Number), label: g.GroupName }))
+    return lookups.isLoaded ? withCurrentOption(options, toCurrentOption(itemMaster?.ItmsGrpCod, itemMaster?.ItmsGrpNam)) : options
+  }, [lookups.data.itemGroups, lookups.isLoaded, itemMaster])
 
   const form = useForm({
     mode: 'onChange',
@@ -200,9 +207,9 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
 
       //* the item is saved either way, a create moves to its edit page so the upload can be retried
       if (!isThumbnailSaved) {
-        toast.error('Item saved, but the thumbnail did not upload.')
+        toast.error('Item master saved, but the thumbnail did not upload.')
 
-        if (isCreate) router.push(`/item-masters/${encodeURIComponent(saved.code)}`)
+        if (isCreate) router.push(`/item-masters/${encodeURIComponent(saved.ItemCode)}`)
         router.refresh()
 
         return
@@ -226,7 +233,7 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
 
       //! navigate before refresh, refreshing here 404s when the code was renamed
       if (isCreate) router.push('/item-masters')
-      else router.push(`/item-masters/${encodeURIComponent(saved.code)}`)
+      else router.push(`/item-masters/${encodeURIComponent(saved.ItemCode)}`)
 
       router.refresh()
     } catch (err: any) {
@@ -295,7 +302,7 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
                     </CanView>
 
                     <CanView subject={PERMISSIONS_CODES.ITEM_MASTERS} action={PERMISSIONS_ALLOWED_ACTIONS.VIEW}>
-                      <DropdownMenuItem onClick={() => router.push(`/item-masters/${encodeURIComponent(itemMaster.code)}/view`)}>
+                      <DropdownMenuItem onClick={() => router.push(`/item-masters/${encodeURIComponent(itemMaster.ItemCode)}/view`)}>
                         <Icons.eye /> View
                       </DropdownMenuItem>
                     </CanView>
@@ -327,33 +334,57 @@ export default function ItemMasterForm({ pageMetaData, itemMaster }: ItemMasterF
 
                   <Column md={8} lg={9}>
                     <Row gap={5}>
-                      <Column md={6}>
-                        <InputField control={form.control} name='code' label='MFG P/N' description='MFG P/N must be unique' isRequired />
-                      </Column>
+                      {isSynced && (
+                        <Column>
+                          <Alert message='This item is synced with SAP. MFG P/N, description, manufacturer and group come from SAP.' />
+                        </Column>
+                      )}
 
                       <Column md={6}>
-                        <ComboboxField
+                        <InputField
                           control={form.control}
-                          type='Basic'
-                          name='manufacturerCode'
-                          label='Manufacturer'
-                          data={manufacturerOptions}
-                          isLoading={manufacturers.isLoading}
+                          name='ItemCode'
+                          label='MFG P/N'
+                          description={`Must be unique, at most ${ITEM_CODE_MAX_LENGTH} characters`}
+                          isRequired
+                          extendedProps={{ inputProps: { disabled: isSynced, maxLength: ITEM_CODE_MAX_LENGTH } }}
                         />
                       </Column>
 
                       <Column md={6}>
-                        <InputField control={form.control} name='description' label='Description' />
+                        <ComboboxField
+                          control={form.control}
+                          type='Basic'
+                          name='FirmCode'
+                          label='Manufacturer'
+                          data={manufacturerOptions}
+                          isLoading={lookups.isLoading}
+                          searchKeys={['value']}
+                          renderItem={renderCodeItem}
+                          extendedProps={{ comboboxInputProps: { disabled: isSynced } }}
+                        />
+                      </Column>
+
+                      <Column md={6}>
+                        <InputField
+                          control={form.control}
+                          name='ItemName'
+                          label='Description'
+                          extendedProps={{ inputProps: { disabled: isSynced } }}
+                        />
                       </Column>
 
                       <Column md={6}>
                         <ComboboxField
                           control={form.control}
                           type='Basic'
-                          name='commodityCode'
-                          label='Commodity'
-                          data={commodityOptions}
-                          isLoading={commodities.isLoading}
+                          name='ItmsGrpCod'
+                          label='Group'
+                          data={itemGroupOptions}
+                          isLoading={lookups.isLoading}
+                          searchKeys={['value']}
+                          renderItem={renderCodeItem}
+                          extendedProps={{ comboboxInputProps: { disabled: isSynced } }}
                         />
                       </Column>
 

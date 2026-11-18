@@ -9,7 +9,8 @@ import { getDisk } from '@/lib/storage'
 import { formatDate } from '@/lib/utils'
 import { getCurrentDbCode } from '@/lib/sap/access'
 import { getCurrentUserWithAbility } from '@/actions/user'
-import { getDataTableItemMastersSvr, ItemMasterWithRelations } from '@/actions/item-master'
+import { getDataTableItemMastersSvr, ItemMasterRow } from '@/actions/item-master'
+import { SAP_SYNC_STATUS_OPTIONS } from '@/constants/sap-sync'
 import { dataTableParamsSchema } from '@/schema/data-table'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
@@ -18,17 +19,19 @@ const THUMBNAIL_ROW_HEIGHT = 62 //* points, a bit over the 80px image
 const THUMBNAIL_COLUMN_WIDTH = 13 //* characters
 const IMAGE_BATCH_SIZE = 5 //* images read at once, keeps a big export from loading every file together
 
-type ExportColumn = { id: string; header: string; width: number; value?: (row: ItemMasterWithRelations) => string }
+type ExportColumn = { id: string; header: string; width: number; value?: (row: ItemMasterRow) => string }
 
-const toReferenceLabel = (reference: { code: string; name: string } | null) => (reference ? `${reference.code} - ${reference.name}` : '')
+const toDateText = (date: Date | null) => (date ? formatDate(new Date(date), 'yyyy-MM-dd HH:mm:ss') : '')
 
 //* same ids as the list columns, so the visible ones pick what gets exported
 const EXPORT_COLUMNS: ExportColumn[] = [
   { id: 'thumbnail', header: 'Thumbnail', width: THUMBNAIL_COLUMN_WIDTH },
-  { id: 'code', header: 'MFG P/N', width: 24, value: (row) => row.code },
-  { id: 'description', header: 'Description', width: 40, value: (row) => row.description ?? '' },
-  { id: 'manufacturerCode', header: 'Manufacturer', width: 28, value: (row) => toReferenceLabel(row.manufacturer) },
-  { id: 'commodityCode', header: 'Commodity', width: 28, value: (row) => toReferenceLabel(row.commodity) },
+  { id: 'ItemCode', header: 'MFG P/N', width: 24, value: (row) => row.ItemCode },
+  { id: 'ItemName', header: 'Description', width: 40, value: (row) => row.ItemName ?? '' },
+  { id: 'FirmName', header: 'Manufacturer', width: 28, value: (row) => row.FirmName ?? '' },
+  { id: 'ItmsGrpNam', header: 'Group', width: 28, value: (row) => row.ItmsGrpNam ?? '' },
+  { id: 'syncStatus', header: 'Sync Status', width: 14, value: (row) => SAP_SYNC_STATUS_OPTIONS.find((o) => o.value === row.syncStatus)?.label ?? row.syncStatus }, // prettier-ignore
+  { id: 'syncedAt', header: 'Synced At', width: 20, value: (row) => toDateText(row.syncedAt) },
   { id: 'notes', header: 'Notes', width: 40, value: (row) => row.notes ?? '' },
   { id: 'isActive', header: 'Active', width: 10, value: (row) => (row.isActive ? 'Yes' : 'No') },
   { id: 'createdAt', header: 'Created At', width: 20, value: (row) => formatDate(new Date(row.createdAt), 'yyyy-MM-dd HH:mm:ss') },

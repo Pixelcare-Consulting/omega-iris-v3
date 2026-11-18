@@ -7,7 +7,7 @@ export const customerProjectFormSchema = z.object({
   code: codeSchema.min(4, { message: 'Code must be at least 4 characters' }),
   name: z.string().trim().min(1, { message: 'Name is required' }),
   description: optionalString,
-  categoryCode: optionalString,
+  categoryCode: z.string().trim().min(1, { message: 'Category is required' }),
   isActive: z.boolean()
 })
 

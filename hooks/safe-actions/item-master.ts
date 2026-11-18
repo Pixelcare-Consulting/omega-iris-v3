@@ -1,9 +1,26 @@
 import { useEffect } from 'react'
 import { useAction } from 'next-safe-action/hooks'
 
-import { getDataTableItemMastersSvrClient } from '@/actions/item-master'
+import { getDataTableItemMastersSvrClient, getItemMasterLookupsClient } from '@/actions/item-master'
 import { DataTableParams } from '@/schema/data-table'
 import { SafeActionHook } from '@/types/safe-action'
+
+export function useItemMasterLookups(dependencies?: any[]) {
+  const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getItemMasterLookupsClient)
+
+  useEffect(() => {
+    execute()
+  }, [...(dependencies || [])])
+
+  return {
+    execute,
+    executeAsync,
+    isLoading,
+    isLoaded: !!result.data,
+    data: result.data ?? { itemGroups: [], manufacturers: [], isError: false },
+    error: { serverError: result.serverError, validationError: result.validationErrors }
+  }
+}
 
 export function useDataTableItemMastersSvr(params: DataTableParams, hook: SafeActionHook, dependencies?: any[]) {
   const { execute, executeAsync, isExecuting: isLoading, result } = useAction(getDataTableItemMastersSvrClient)

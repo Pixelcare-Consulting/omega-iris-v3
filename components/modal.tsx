@@ -77,6 +77,11 @@ export default function Modal({
     if (target?.closest(PORTALLED_POPUP_SELECTOR)) event.preventDefault()
   }
 
+  //! a closing dropdown hands focus back to its trigger, which would close a non-modal dialog it just opened
+  const handleFocusOutside: React.ComponentProps<typeof DialogContent>['onFocusOutside'] = (event) => {
+    if (!isModal) event.preventDefault()
+  }
+
   const handleEscapeKeyDown: React.ComponentProps<typeof DialogContent>['onEscapeKeyDown'] = (event) => {
     if (!isCloseOnEscape) event.preventDefault()
   }
@@ -102,6 +107,7 @@ export default function Modal({
       <DialogContent
         showCloseButton={!isHideCloseButton}
         onInteractOutside={handleInteractOutside}
+        onFocusOutside={handleFocusOutside}
         onEscapeKeyDown={handleEscapeKeyDown}
         {...extendedProps?.dialogContentProps}
         className={cn(MODAL_SIZES[size], 'p-6', extendedProps?.dialogContentProps?.className)}

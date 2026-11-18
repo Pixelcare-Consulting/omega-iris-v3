@@ -9,6 +9,7 @@ import { buildColumnFiltersWhere, buildGlobalFilterWhere, buildOrderBy, getDataT
 import { PModels } from '@/types/prisma'
 import { codeParamsSchema } from '@/schema/common'
 import { logger } from '@/lib/logger'
+import { FilterOption } from '@/types/data-table'
 import { customerProjectFormSchema } from '@/schema/customer-project'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
@@ -29,6 +30,24 @@ export async function getCustomerProjects(dbCode: string | null) {
     })
   } catch (err: any) {
     logger.error(err, '[GET_CUSTOMER_PROJECTS_ERROR]:')
+    return []
+  }
+}
+
+//* list filter only, inactive ones too so old rows can be found
+export async function getCustomerProjectOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const projects = await db.customerProject.findMany({
+      where: { dbCode, deletedAt: null },
+      select: { code: true, name: true },
+      orderBy: { code: 'asc' }
+    })
+
+    return projects.map((project) => ({ label: `${project.code} - ${project.name}`, value: project.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_CUSTOMER_PROJECT_OPTIONS_ERROR]:')
     return []
   }
 }
@@ -74,7 +93,7 @@ export async function getDataTableCustomerProjectsSvr(dbCode: string, params: Da
     const currentFilters = where.AND as Prisma.CustomerProjectWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      stringFields: [{ field: 'categoryCode', nullable: true }],
+      stringFields: ['categoryCode'],
       booleanFields: [{ field: 'isActive' }],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
     })
@@ -157,8 +176,8 @@ export const upsertCustomerProject = action
         return { status: 403, error: true, message: 'System generated customer project cannot be edited!', action: actionTag }
       }
 
-      //* only a changed category is checked, keeping an inactive one is fine
-      if (data.categoryCode && data.categoryCode !== existing?.categoryCode) {
+      //* category is locked after create, so only a new project checks it
+      if (isCreate) {
         const category = await db.projectCategory.findFirst({
           where: { dbCode, code: data.categoryCode, deletedAt: null, isActive: true },
           select: { id: true }
@@ -172,8 +191,12 @@ export const upsertCustomerProject = action
 
       //* update project
       if (existing) {
-        //! code is never written here, even if the client sent one
-        const customerProject = await db.customerProject.update({ where: { id: existing.id }, data: { ...data, updatedBy: userCode } })
+        //! code and category are never written here, pallet and container codes hold them
+        const { categoryCode, ...editable } = data
+        const customerProject = await db.customerProject.update({
+          where: { id: existing.id },
+          data: { ...editable, updatedBy: userCode }
+        })
 
         return {
           status: 200,
@@ -222,6 +245,18 @@ export const deleteCustomerProject = action
       //! the table hides these for system rows, this is the check behind it
       if (customerProject.isSystem) {
         return { status: 403, error: true, message: 'System generated customer project cannot be deleted!', action: actionTag }
+      }
+
+      const palletCount = await db.pallet.count({ where: { dbCode, customerProjectCode: customerProject.code, deletedAt: null } })
+
+      if (palletCount > 0) {
+        return { status: 409, error: true, message: 'Customer project is in use by pallets!', action: actionTag }
+      }
+
+      const containerCount = await db.container.count({ where: { dbCode, customerProjectCode: customerProject.code, deletedAt: null } })
+
+      if (containerCount > 0) {
+        return { status: 409, error: true, message: 'Customer project is in use by containers!', action: actionTag }
       }
 
       await db.customerProject.update({ where: { id: customerProject.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
