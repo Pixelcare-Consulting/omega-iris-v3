@@ -29,6 +29,7 @@ export async function getRoles() {
   }
 }
 
+//* list filter only, form pickers use the live rows
 export async function getRoleOptions(): Promise<FilterOption[]> {
   try {
     const roles = await db.role.findMany({ where: { deletedAt: null }, select: { key: true, name: true }, orderBy: { name: 'asc' } })

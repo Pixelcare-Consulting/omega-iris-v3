@@ -26,7 +26,7 @@ export async function getSites(dbCode: string | null) {
   }
 }
 
-//* filter options, inactive ones too so old rows can be found
+//* list filter only, inactive ones too so old rows can be found
 export async function getSiteOptions(dbCode: string | null): Promise<FilterOption[]> {
   if (!dbCode) return []
 

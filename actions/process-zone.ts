@@ -26,7 +26,7 @@ export async function getProcessZones(dbCode: string | null) {
   }
 }
 
-//* filter options, inactive ones too so old rows can be found
+//* list filter only, inactive ones too so old rows can be found
 export async function getProcessZoneOptions(dbCode: string | null): Promise<FilterOption[]> {
   if (!dbCode) return []
 
