@@ -3,7 +3,7 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from './permission'
 
 export const APP_CONFIG = {
   name: 'Iris',
-  fullName: 'Omega Iris Inventory & Warehouse Management System',
+  fullName: 'Omega Immediate Response Inventory System',
   description: 'Inventory, warehouse, and barcoding system for Omega.',
   creator: 'PXC Dev Team',
   features: [
@@ -24,7 +24,7 @@ export const APP_CONFIG = {
   },
   signin: {
     subtitle: 'Enter your credentials to access your account',
-    logoSubtitle: 'Inventory Management System',
+    logoSubtitle: 'Immediate Response Inventory System',
     eyebrow: 'OMEGA IRIS · INVENTORY & WMS',
     title: 'Your inventory,',
     titleHighlight: 'under control.',
