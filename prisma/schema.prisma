@@ -203,13 +203,17 @@ model RoleSapDatabase {
 }
 
 model Site {
-  id          String  @id @default(cuid())
-  dbCode      String
-  code        String
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-  isSystem    Boolean @default(false)
+  id                 String  @id @default(cuid())
+  dbCode             String
+  code               String
+  name               String
+  description        String?
+  isEnableInbound    Boolean @default(false)
+  isEnableOutbound   Boolean @default(false)
+  isEnableMovement   Boolean @default(false)
+  isEnableCycleCount Boolean @default(false)
+  isActive           Boolean @default(true)
+  isSystem           Boolean @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt

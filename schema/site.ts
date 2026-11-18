@@ -7,6 +7,10 @@ export const siteFormSchema = z.object({
   code: codeSchema.max(3, { message: 'Code must be at most 3 characters' }),
   name: z.string().trim().min(1, { message: 'Name is required' }),
   description: optionalString,
+  isEnableInbound: z.boolean(),
+  isEnableOutbound: z.boolean(),
+  isEnableMovement: z.boolean(),
+  isEnableCycleCount: z.boolean(),
   isActive: z.boolean()
 })
 

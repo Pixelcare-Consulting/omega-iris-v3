@@ -73,7 +73,13 @@ export async function getDataTableSitesSvr(dbCode: string, params: DataTablePara
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
       stringFields: ['code', 'name', 'description'],
-      booleanFields: [{ field: 'isActive' }]
+      booleanFields: [
+        { field: 'isEnableInbound' },
+        { field: 'isEnableOutbound' },
+        { field: 'isEnableMovement' },
+        { field: 'isEnableCycleCount' },
+        { field: 'isActive' }
+      ]
     })
 
     Object.assign(where, filter)
@@ -84,7 +90,13 @@ export async function getDataTableSitesSvr(dbCode: string, params: DataTablePara
     const currentFilters = where.AND as Prisma.SiteWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      booleanFields: [{ field: 'isActive' }],
+      booleanFields: [
+        { field: 'isEnableInbound' },
+        { field: 'isEnableOutbound' },
+        { field: 'isEnableMovement' },
+        { field: 'isEnableCycleCount' },
+        { field: 'isActive' }
+      ],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
     })
 
