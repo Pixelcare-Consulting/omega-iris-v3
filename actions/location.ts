@@ -9,6 +9,7 @@ import { buildColumnFiltersWhere, buildGlobalFilterWhere, buildOrderBy, getDataT
 import { PModels } from '@/types/prisma'
 import { codeParamsSchema } from '@/schema/common'
 import { logger } from '@/lib/logger'
+import { FilterOption } from '@/types/data-table'
 import { existingLocationCodesSchema, locationFormSchema, locationGenerateFormSchema } from '@/schema/location'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { isUniqueConstraintError, toDuplicateMessage } from '@/lib/duplicate'
@@ -18,6 +19,24 @@ import { createLocationRows, LocationCreateRow } from '@/lib/location-create'
 const COMMON_LOCATION_INCLUDE = { site: true, processZone: true } satisfies Prisma.LocationInclude
 
 export type LocationWithRelations = Prisma.LocationGetPayload<{ include: typeof COMMON_LOCATION_INCLUDE }>
+
+//* list filter only, inactive ones too so old rows can be found
+export async function getLocationOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const locations = await db.location.findMany({
+      where: { dbCode, deletedAt: null },
+      select: { code: true },
+      orderBy: { code: 'asc' }
+    })
+
+    return locations.map((location) => ({ label: location.code, value: location.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_LOCATION_OPTIONS_ERROR]:')
+    return []
+  }
+}
 
 export async function getLocationByCode(dbCode: string | null, code?: string | null) {
   if (!dbCode || !code) return null
@@ -30,6 +49,48 @@ export async function getLocationByCode(dbCode: string | null, code?: string | n
     return null
   }
 }
+
+//* live, active and pallet allowed, for the pallet pickers
+export async function getPalletLocations(dbCode: string | null) {
+  if (!dbCode) return []
+
+  try {
+    return await db.location.findMany({
+      where: { dbCode, deletedAt: null, isActive: true, isPalletAllowed: true },
+      select: { code: true, name: true },
+      orderBy: { code: 'asc' }
+    })
+  } catch (err: any) {
+    logger.error(err, '[GET_PALLET_LOCATIONS_ERROR]:')
+    return []
+  }
+}
+
+export const getPalletLocationsClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .action(async ({ ctx }) => getPalletLocations(ctx.dbCode))
+
+//* live and active, any location, for the container pickers
+export async function getActiveLocations(dbCode: string | null) {
+  if (!dbCode) return []
+
+  try {
+    return await db.location.findMany({
+      where: { dbCode, deletedAt: null, isActive: true },
+      select: { code: true, name: true, isPalletAllowed: true },
+      orderBy: { code: 'asc' }
+    })
+  } catch (err: any) {
+    logger.error(err, '[GET_ACTIVE_LOCATIONS_ERROR]:')
+    return []
+  }
+}
+
+export const getActiveLocationsClient = action
+  .use(authenticationMiddleware)
+  .use(tenantMiddleware)
+  .action(async ({ ctx }) => getActiveLocations(ctx.dbCode))
 
 //* live rows only, ordered by code, missing ids drop out
 export async function getLocationsByIds(dbCode: string, ids: string[]) {
@@ -146,6 +207,15 @@ export const upsertLocation = action
         const existing = await db.location.findFirst({ where: { id, dbCode, deletedAt: null } })
 
         if (!existing) return { status: 404, error: true, message: 'Location not found!', action: actionTag }
+
+        //! turning pallets off would strand the pallets already here
+        if (existing.isPalletAllowed && !isPalletAllowed) {
+          const palletCount = await db.pallet.count({ where: { dbCode, locationCode: existing.code, deletedAt: null } })
+
+          if (palletCount > 0) {
+            return { status: 409, error: true, message: 'Location has pallets on it, move them off first!', action: actionTag }
+          }
+        }
 
         //! code parts are locked, only these change
         const location = await db.location.update({
@@ -276,7 +346,18 @@ export const deleteLocation = action
 
       if (!location) return { status: 404, error: true, message: 'Location not found!', action: actionTag }
 
-      //TODO: block delete while referenced, 409 'Location is in use!'
+      const palletCount = await db.pallet.count({ where: { dbCode, locationCode: location.code, deletedAt: null } })
+
+      if (palletCount > 0) {
+        return { status: 409, error: true, message: 'Location is in use by pallets!', action: actionTag }
+      }
+
+      //! containers point here too, after the pallet check so that one still runs first
+      const containerCount = await db.container.count({ where: { dbCode, locationCode: location.code, deletedAt: null } })
+
+      if (containerCount > 0) {
+        return { status: 409, error: true, message: 'Location is in use by containers!', action: actionTag }
+      }
 
       await db.location.update({ where: { id: location.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
 

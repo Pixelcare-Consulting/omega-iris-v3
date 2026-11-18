@@ -170,6 +170,7 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 ## Shared helpers worth knowing before writing your own
 
 - `withCurrentOption` ([lib/form.ts](lib/form.ts)) keeps a record's own deleted/inactive related row selectable in a picker, labelled `(Deleted)`/`(Inactive)`. Any select fed by a "live rows only" query needs it, or editing an old record silently blanks the field.
+- `get<Entity>Options` (`getSiteOptions`, `getCustomerProjectOptions`, …) feed **list filters only**. They return `FilterOption[]` with inactive rows included, so old records stay filterable. Form pickers use the live-rows hook plus `withCurrentOption` instead.
 - `buildPermissionTree` ([lib/permissions.ts](lib/permissions.ts)) turns a flat `Permission[]` into a nested tree.
 - `findMenuItemByUrl` ([lib/config.ts](lib/config.ts)) resolves the current path to its `MenuItem`, prefix-matching without letting `/users` claim `/usersettings`.
 - `handleTabChange` ([lib/event-handler.ts](lib/event-handler.ts)) holds tab state in the `?tab=` search param.
@@ -188,6 +189,22 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 - **Item master thumbnails** are the first user. The item saves first, then the image uploads with `referenceId = item.id`, then `setItemMasterThumbnail` points the item at it and deletes the old file. Export embeds them through `POST /api/item-masters/export` (exceljs + sharp), since `xlsx-js-style` cannot hold images.
 - **Deletes are permanent** for both attachments and links, so neither model has `deletedAt`. `deleteItem` only soft deletes, so an item's attachments survive for restore.
 - **Changing storage.** `pnpm files:migrate --from=<disk> --to=<disk>`, any two disks, either direction. See [docs/file-attachment-migration.md](docs/file-attachment-migration.md).
+
+## PDFs
+
+- **How they render.** `@react-pdf/renderer` on the server, from a route handler that calls `renderToBuffer`. Copy [app/api/locations/[code]/label/pdf/route.ts](<app/api/locations/[code]/label/pdf/route.ts>). It returns 401 without a session or `dbCode`, 403 without the permission, and serves inline by default or as an `attachment` with `?download=1`. The href helper lives in the module's `lib/` file, like `getLocationLabelPdfHref` in [lib/location.ts](lib/location.ts).
+- **Many records in one PDF.** POST the ids in the body, not the URL, like `POST /api/locations/labels/pdf`. The client sends it with axios as a blob through `useLabelsPdf(endpoint)` ([hooks/use-labels-pdf.ts](hooks/use-labels-pdf.ts)), which opens the tab before the request so the popup blocker lets it through.
+- **Documents** go in [components/pdf/](components/pdf/). Read the records through a plain read function in `actions/`, never an exported include, since a `'use server'` file can only export async functions.
+- **QR codes.** `qrcode.react` is for the screen only, it outputs DOM `<svg>` that react-pdf cannot draw. In a PDF, use `getQrPath` from [lib/qr.ts](lib/qr.ts) inside a react-pdf `<Svg>`.
+- **QR labels.** Locations, pallets and containers share them. One label per page holding the QR and the code, drawn by `CodeLabelDocument` ([components/pdf/code-label-document.tsx](components/pdf/code-label-document.tsx)) for any `{ id, code }[]`. Sizes live in `LABEL_SIZES` ([constants/label.ts](constants/label.ts)). Mark one entry `isDefault`, now `4x2in`, and read `DEFAULT_LABEL_SIZE` rather than the flag. Requests are checked by `labelsPdfSchema` ([schema/label.ts](schema/label.ts)), and `LabelSizeModal` ([components/label-size-modal.tsx](components/label-size-modal.tsx)) picks the size. A new module adds two routes (`[code]/label/pdf` and `labels/pdf`), a `get<Entity>LabelPdfHref`, and a `get<Entity>sByIds` read. Print at Actual size, since "Fit to page" shrinks the label off the roll. The list's header checkbox ticks every row matching the current filters on all pages, through the export call (`isExport: true`), up to `LABEL_MAX_COUNT` (1000). The size picker passes `isModal={false}`, since a modal dialog blocks clicks on the portalled combobox list. The default size moves to settings once the settings module lands, modelled on lis.
+
+## Pallets and containers
+
+- **Codes.** `<category>-<project>-<yymonth>-P<0001>` for pallets and `-C<0001>` for containers, with general purpose dropping the first two parts. Numbers come from `reserveSequence` in [lib/sequence.ts](lib/sequence.ts), inside the save transaction, under the `PALLET` and `CONTAINER` keys. The scope is the prefix, so each project and month counts on its own.
+- **Status.** Both use `StorageUnitStatus`, with labels in [constants/storage-unit.ts](constants/storage-unit.ts). Edit writes only `status`; everything else is locked after save.
+- **Container location.** The location decides. A container can go on any active location, and the pallet is optional. A pallet is only allowed when the location allows pallets and the pallet already sits there. `validateContainerRefs` in [actions/container.ts](actions/container.ts) holds every container rule: an active location, an active pallet at that location, a pallet of the same project for project containers, and a general purpose pallet for general purpose containers. A container and its pallet always agree on the project.
+- **Blocks.** A pallet with live containers can't leave Active. A location with live pallets can't turn off Pallet Allowed. A pallet can't be restored onto a location that is inactive or no longer allows pallets. A container can't be restored onto an inactive location, or a pallet that is no longer Active or has moved. A customer project's category is locked after create, since pallet and container codes hold it. Each block returns 409.
+- **Moves.** A later movement feature changes locations. Moving a pallet there also moves its containers.
 
 ## SAP sync
 

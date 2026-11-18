@@ -144,8 +144,22 @@ export const MENU_GROUPS: MenuGroup[] = [
         url: '',
         icon: Icons.boxes,
         items: [
-          { title: 'Pallets', url: '/pallets', icon: Icons.layers, items: [] },
-          { title: 'Containers', url: '/containers', icon: Icons.container, items: [] },
+          {
+            title: 'Pallets',
+            url: '/pallets',
+            icon: Icons.layers,
+            items: [],
+            subjects: PERMISSIONS_CODES.PALLETS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Containers',
+            url: '/containers',
+            icon: Icons.container,
+            items: [],
+            subjects: PERMISSIONS_CODES.CONTAINERS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
           { title: 'MPN / Unique ID', url: '/mpn', icon: Icons.fingerprint, items: [] },
           { title: 'Inbound', url: '/inbound', icon: Icons.packageOpen, items: [] },
           { title: 'Outbound', url: '/outbound', icon: Icons.truck, items: [] },

@@ -31,6 +31,8 @@ export const PERMISSIONS_CODES = {
   SITES: 'p-sites',
   PROCESS_ZONES: 'p-process-zones',
   LOCATIONS: 'p-locations',
+  PALLETS: 'p-pallets',
+  CONTAINERS: 'p-containers',
   PROJECT_CATEGORIES: 'p-project-categories',
   CUSTOMER_PROJECTS: 'p-customer-projects',
   ITEM_MASTERS: 'p-item-masters',
@@ -146,6 +148,24 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     parentCode: null,
     isSystem: true,
     allowedActions: []
+  },
+  {
+    code: PERMISSIONS_CODES['PALLETS'],
+    name: 'Pallets',
+    description: 'Pallets Module',
+    isParent: false,
+    parentCode: PERMISSIONS_CODES['INVENTORY'],
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['CONTAINERS'],
+    name: 'Containers',
+    description: 'Containers Module',
+    isParent: false,
+    parentCode: PERMISSIONS_CODES['INVENTORY'],
+    isSystem: true,
+    allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
   },
   {
     code: PERMISSIONS_CODES['PROJECT'],

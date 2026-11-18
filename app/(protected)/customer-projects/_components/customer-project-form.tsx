@@ -50,7 +50,7 @@ export default function CustomerProjectForm({ pageMetaData, customerProject }: C
   const values = useMemo(() => {
     if (customerProject) {
       const { id, code, name, description, categoryCode, isActive } = customerProject
-      return { id, code, name, description: description ?? '', categoryCode: categoryCode ?? '', isActive }
+      return { id, code, name, description: description ?? '', categoryCode, isActive }
     }
 
     if (isCreate) return defaultValues
@@ -219,10 +219,13 @@ export default function CustomerProjectForm({ pageMetaData, customerProject }: C
                     type='Basic'
                     name='categoryCode'
                     label='Category'
+                    isRequired
                     data={categoryOptions}
                     isLoading={projectCategories.isLoading}
                     searchKeys={['value']}
                     renderItem={renderCodeItem}
+                    description={isCreate ? 'Cannot be changed later' : 'Category cannot be changed'}
+                    extendedProps={{ comboboxInputProps: { disabled: !isCreate } }}
                   />
                 </Column>
 

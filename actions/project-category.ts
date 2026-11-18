@@ -26,7 +26,7 @@ export async function getProjectCategories(dbCode: string | null) {
   }
 }
 
-//* table filter options, inactive kept so old projects stay filterable
+//* list filter only, inactive ones too so old rows can be found
 export async function getProjectCategoryOptions(dbCode: string | null): Promise<FilterOption[]> {
   if (!dbCode) return []
 
@@ -219,6 +219,18 @@ export const deleteProjectCategory = action
 
       if (projectCount > 0) {
         return { status: 409, error: true, message: 'Category is in use by customer projects!', action: actionTag }
+      }
+
+      const palletCount = await db.pallet.count({ where: { dbCode, projectCategoryCode: projectCategory.code, deletedAt: null } })
+
+      if (palletCount > 0) {
+        return { status: 409, error: true, message: 'Category is in use by pallets!', action: actionTag }
+      }
+
+      const containerCount = await db.container.count({ where: { dbCode, projectCategoryCode: projectCategory.code, deletedAt: null } })
+
+      if (containerCount > 0) {
+        return { status: 409, error: true, message: 'Category is in use by containers!', action: actionTag }
       }
 
       await db.projectCategory.update({ where: { id: projectCategory.id }, data: { deletedAt: new Date(), deletedBy: userCode } })

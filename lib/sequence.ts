@@ -57,6 +57,39 @@ export async function nextSequence<TContext>(
   return definition.format(row.current, scope, ctx)
 }
 
+//* takes count numbers in one write, returns the first, e.g. 11 for 11 to 20
+//! run inside the record's transaction, a rollback then gives the numbers back
+export async function reserveSequence<TContext>(
+  tx: Prisma.TransactionClient,
+  definition: SequenceDefinition<TContext>,
+  ctx: TContext,
+  count: number,
+  date = new Date()
+) {
+  const scope = definition.scope(ctx, toBusinessDate(date))
+
+  const [row] = await tx.$queryRaw<{ current: number }[]>`
+    INSERT INTO "SequenceCounter" ("id", "key", "scope", "current")
+    VALUES (${createId()}, ${definition.key}, ${scope}, ${count})
+    ON CONFLICT ("key", "scope")
+    DO UPDATE SET "current" = "SequenceCounter"."current" + ${count}, "updatedAt" = now()
+    RETURNING "current"`
+
+  return { scope, first: row.current - count + 1 }
+}
+
+//* next number and its scope, for a preview that counts on from it
+export async function previewSequenceValue<TContext>(definition: SequenceDefinition<TContext>, ctx: TContext, date = new Date()) {
+  const scope = definition.scope(ctx, toBusinessDate(date))
+
+  const counter = await db.sequenceCounter.findUnique({
+    where: { key_scope: { key: definition.key, scope } },
+    select: { current: true }
+  })
+
+  return { scope, value: (counter?.current ?? 0) + 1 }
+}
+
 //* next code for display only, another save can still take it first
 export async function previewSequence<TContext>(definition: SequenceDefinition<TContext>, ctx: TContext, date = new Date()) {
   const scope = definition.scope(ctx, toBusinessDate(date))

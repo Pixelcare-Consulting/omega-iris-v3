@@ -1,154 +1,154 @@
 generator client {
-    provider = "prisma-client"
-    output   = "./generated"
+  provider = "prisma-client"
+  output   = "./generated"
 }
 
 datasource db {
-    provider = "postgresql"
+  provider = "postgresql"
 }
 
 model User {
-    id                       String    @id @default(cuid())
-    code                     Int       @unique @default(autoincrement())
-    fname                    String
-    lname                    String
-    mname                    String?
-    suffix                   String?
-    name                     String
-    email                    String    @unique
-    emailVerified            Boolean   @default(false)
-    image                    String?
-    username                 String    @unique
-    roleCode                 Int
-    isActive                 Boolean   @default(true)
-    isDefaultPasswordChanged Boolean   @default(false)
-    isLocked                 Boolean   @default(false)
-    isSystem                 Boolean   @default(false)
-    failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and successfully signin
-    lastSignin               DateTime?
+  id                       String    @id @default(cuid())
+  code                     Int       @unique @default(autoincrement())
+  fname                    String
+  lname                    String
+  mname                    String?
+  suffix                   String?
+  name                     String
+  email                    String    @unique
+  emailVerified            Boolean   @default(false)
+  image                    String?
+  username                 String    @unique
+  roleCode                 Int
+  isActive                 Boolean   @default(true)
+  isDefaultPasswordChanged Boolean   @default(false)
+  isLocked                 Boolean   @default(false)
+  isSystem                 Boolean   @default(false)
+  failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and successfully signin
+  lastSignin               DateTime?
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    role                    Role             @relation(fields: [roleCode], references: [code])
-    sessions                AuthSession[]
-    accounts                Account[]
-    uploadedFileAttachments FileAttachment[] @relation(name: "UploadedFileAttachments")
+  role                    Role             @relation(fields: [roleCode], references: [code])
+  sessions                AuthSession[]
+  accounts                Account[]
+  uploadedFileAttachments FileAttachment[] @relation(name: "UploadedFileAttachments")
 
-    @@index([roleCode])
-    @@index([deletedAt])
+  @@index([roleCode])
+  @@index([deletedAt])
 }
 
 model Role {
-    id          String  @id @default(cuid())
-    code        Int     @unique @default(autoincrement())
-    name        String
-    key         String  @unique
-    description String?
-    color       String?
-    isSystem    Boolean @default(false)
+  id          String  @id @default(cuid())
+  code        Int     @unique @default(autoincrement())
+  name        String
+  key         String  @unique
+  description String?
+  color       String?
+  isSystem    Boolean @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    users            User[]
-    rolePermissions  RolePermission[]
-    roleReports      RoleReport[]
-    roleSapDatabases RoleSapDatabase[]
+  users            User[]
+  rolePermissions  RolePermission[]
+  roleReports      RoleReport[]
+  roleSapDatabases RoleSapDatabase[]
 }
 
 model Permission {
-    id             String   @id @default(cuid())
-    code           String   @unique
-    name           String
-    description    String?  @default("")
-    isParent       Boolean  @default(false)
-    isSystem       Boolean  @default(false)
-    parentCode     String?
-    allowedActions String[] //* default actions 'view', 'create', 'edit', 'delete'
+  id             String   @id @default(cuid())
+  code           String   @unique
+  name           String
+  description    String?  @default("")
+  isParent       Boolean  @default(false)
+  isSystem       Boolean  @default(false)
+  parentCode     String?
+  allowedActions String[] //* default actions 'view', 'create', 'edit', 'delete'
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    parent          Permission?      @relation(name: "NestedPermissions", fields: [parentCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    children        Permission[]     @relation("NestedPermissions")
-    rolePermissions RolePermission[]
+  parent          Permission?      @relation(name: "NestedPermissions", fields: [parentCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+  children        Permission[]     @relation("NestedPermissions")
+  rolePermissions RolePermission[]
 
-    @@index([parentCode])
+  @@index([parentCode])
 }
 
 model RolePermission {
-    roleCode       Int
-    permissionCode String
-    actions        String[] @default([])
+  roleCode       Int
+  permissionCode String
+  actions        String[] @default([])
 
-    role       Role       @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    permission Permission @relation(fields: [permissionCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+  role       Role       @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+  permission Permission @relation(fields: [permissionCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
-    @@id([roleCode, permissionCode])
-    @@index([permissionCode])
-    @@index([actions], type: Gin)
+  @@id([roleCode, permissionCode])
+  @@index([permissionCode])
+  @@index([actions], type: Gin)
 }
 
 model AuthSession {
-    id        String   @id
-    expiresAt DateTime
-    token     String   @unique
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
-    ipAddress String?
-    userAgent String?
-    userId    String
-    dbCode    String? //* the sap database picked after signin, only the select action writes it
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  dbCode    String? //* the sap database picked after signin, only the select action writes it
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([userId])
-    @@index([dbCode])
+  @@index([userId])
+  @@index([dbCode])
 }
 
 model Account {
-    id         String @id
-    accountId  String
-    providerId String
-    userId     String
+  id         String @id
+  accountId  String
+  providerId String
+  userId     String
 
-    accessToken           String?
-    refreshToken          String?
-    idToken               String?
-    accessTokenExpiresAt  DateTime?
-    refreshTokenExpiresAt DateTime?
-    scope                 String?
-    password              String?
-    createdAt             DateTime  @default(now())
-    updatedAt             DateTime  @updatedAt
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-    @@index([userId])
+  @@index([userId])
 }
 
 model Verification {
-    id         String   @id
-    identifier String
-    value      String
-    expiresAt  DateTime
-    createdAt  DateTime @default(now())
-    updatedAt  DateTime @updatedAt
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-    @@index([identifier])
+  @@index([identifier])
 }
 
 //* REPORT TYPE
@@ -156,444 +156,537 @@ model Verification {
 //? 2 - Paginated 
 //* only 1 default report, which visible to any users
 model Report {
-    id          String  @id @default(cuid())
-    code        Int     @unique @default(autoincrement())
-    title       String
-    fileName    String  @unique
-    description String?
-    isActive    Boolean @default(true)
-    type        String
-    data        String  @default("")
-    isFeatured  Boolean @default(true)
-    isDefault   Boolean @default(false)
-    isInternal  Boolean @default(false)
+  id          String  @id @default(cuid())
+  code        Int     @unique @default(autoincrement())
+  title       String
+  fileName    String  @unique
+  description String?
+  isActive    Boolean @default(true)
+  type        String
+  data        String  @default("")
+  isFeatured  Boolean @default(true)
+  isDefault   Boolean @default(false)
+  isInternal  Boolean @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    roleReports RoleReport[]
+  roleReports RoleReport[]
 }
 
 //* plain join table, the role form replaces its rows on every save like RolePermission
 model RoleReport {
-    roleCode   Int
-    reportCode Int
+  roleCode   Int
+  reportCode Int
 
-    role   Role   @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    report Report @relation(fields: [reportCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+  role   Role   @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+  report Report @relation(fields: [reportCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
 
-    @@id([roleCode, reportCode])
-    @@index([reportCode])
+  @@id([roleCode, reportCode])
+  @@index([reportCode])
 }
 
 //* plain join table, the role form replaces its rows on every save like RolePermission
 model RoleSapDatabase {
-    roleCode        Int
-    sapDatabaseCode String
+  roleCode        Int
+  sapDatabaseCode String
 
-    role        Role        @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
-    sapDatabase SapDatabase @relation(fields: [sapDatabaseCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+  role        Role        @relation(fields: [roleCode], references: [code], onUpdate: Cascade, onDelete: Cascade)
+  sapDatabase SapDatabase @relation(fields: [sapDatabaseCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@id([roleCode, sapDatabaseCode])
-    @@index([sapDatabaseCode])
+  @@id([roleCode, sapDatabaseCode])
+  @@index([sapDatabaseCode])
 }
 
 model Site {
-    id          String  @id @default(cuid())
-    dbCode      String
-    code        String
-    name        String
-    description String?
-    isActive    Boolean @default(true)
-    isSystem    Boolean @default(false)
+  id          String  @id @default(cuid())
+  dbCode      String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+  isSystem    Boolean @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    locations Location[]
+  locations Location[]
 
-    @@unique([dbCode, code])
-    @@unique([dbCode, name])
-    @@index([dbCode])
-    @@index([deletedAt])
+  @@unique([dbCode, code])
+  @@unique([dbCode, name])
+  @@index([dbCode])
+  @@index([deletedAt])
 }
 
 model ProcessZone {
-    id               String  @id @default(cuid())
-    dbCode           String
-    code             String
-    name             String
-    description      String?
-    isPalletEligible Boolean @default(false)
-    isActive         Boolean @default(true)
-    isSystem         Boolean @default(false)
+  id               String  @id @default(cuid())
+  dbCode           String
+  code             String
+  name             String
+  description      String?
+  isPalletEligible Boolean @default(false)
+  isActive         Boolean @default(true)
+  isSystem         Boolean @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    locations Location[]
+  locations Location[]
 
-    @@unique([dbCode, code])
-    @@unique([dbCode, name])
-    @@index([dbCode])
-    @@index([deletedAt])
+  @@unique([dbCode, code])
+  @@unique([dbCode, name])
+  @@index([dbCode])
+  @@index([deletedAt])
 }
 
 enum LocationType {
-    PALLET_RACK
-    BIN
-    PROCESS_ZONE
+  PALLET_RACK
+  BIN
+  PROCESS_ZONE
 }
 
-//* code is built from site, zone, bay, level and rack
+//* code is <site>-<zone>-<bay>, plus -<level><rack> when set
 model Location {
-    id              String       @id @default(cuid())
-    dbCode          String
-    code            String
-    name            String
-    siteCode        String
-    processZoneCode String
-    bayCode         String
-    levelCode       String?
-    rackCode        String?
-    type            LocationType? //* optional for now
-    isActive        Boolean      @default(true)
-    isPalletAllowed Boolean      @default(false)
+  id              String        @id @default(cuid())
+  dbCode          String
+  code            String
+  name            String
+  siteCode        String
+  processZoneCode String
+  bayCode         String
+  levelCode       String?
+  rackCode        String?
+  type            LocationType? //* optional for now
+  isActive        Boolean       @default(true)
+  isPalletAllowed Boolean       @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    site        Site        @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
-    processZone ProcessZone @relation(fields: [dbCode, processZoneCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  site        Site        @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  processZone ProcessZone @relation(fields: [dbCode, processZoneCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pallets     Pallet[]
+  containers  Container[]
 
-    @@unique([dbCode, code])
-    @@index([dbCode])
-    @@index([siteCode])
-    @@index([processZoneCode])
-    @@index([deletedAt])
+  @@unique([dbCode, code])
+  @@index([dbCode])
+  @@index([siteCode])
+  @@index([processZoneCode])
+  @@index([deletedAt])
+}
+
+enum StorageUnitStatus {
+  ACTIVE
+  INACTIVE
+  EMPTIED
+  RETIRED
+  CANCELLED
+  DAMAGED
+}
+
+//* code is <category>-<project>-<yymonth>-P<number>, general purpose drops the first two
+model Pallet {
+  id                  String            @id @default(cuid())
+  dbCode              String
+  code                String
+  projectCategoryCode String?
+  customerProjectCode String?
+  locationCode        String
+  status              StorageUnitStatus @default(ACTIVE)
+  isGeneralPurpose    Boolean           @default(false)
+  lastCycleCount      DateTime?
+  displacementCount   Int               @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  projectCategory ProjectCategory? @relation(fields: [dbCode, projectCategoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  customerProject CustomerProject? @relation(fields: [dbCode, customerProjectCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  location        Location         @relation(fields: [dbCode, locationCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  containers      Container[]
+
+  @@unique([dbCode, code])
+  @@index([dbCode])
+  @@index([locationCode])
+  @@index([projectCategoryCode])
+  @@index([customerProjectCode])
+  @@index([deletedAt])
+}
+
+enum ContainerType {
+  BOX
+  ESD_BOX
+  TOTE
+  PLASTIC_BIN
+  TRAY
+  REEL_BOX
+}
+
+//* code is <category>-<project>-<yymonth>-C<number>, general purpose drops the first two
+//* a container on a pallet always uses the pallet's location
+model Container {
+  id                  String            @id @default(cuid())
+  dbCode              String
+  code                String
+  projectCategoryCode String?
+  customerProjectCode String?
+  locationCode        String
+  palletCode          String?
+  type                ContainerType
+  status              StorageUnitStatus @default(ACTIVE)
+  isGeneralPurpose    Boolean           @default(false)
+  lastCycleCount      DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  projectCategory ProjectCategory? @relation(fields: [dbCode, projectCategoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  customerProject CustomerProject? @relation(fields: [dbCode, customerProjectCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  location        Location         @relation(fields: [dbCode, locationCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pallet          Pallet?          @relation(fields: [dbCode, palletCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+  @@unique([dbCode, code])
+  @@index([dbCode])
+  @@index([locationCode])
+  @@index([palletCode])
+  @@index([projectCategoryCode])
+  @@index([customerProjectCode])
+  @@index([deletedAt])
 }
 
 model ProjectCategory {
-    id          String  @id @default(cuid())
-    dbCode      String
-    code        String
-    name        String
-    description String?
-    isActive    Boolean @default(true)
-    isSystem    Boolean @default(false)
+  id          String  @id @default(cuid())
+  dbCode      String
+  code        String
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+  isSystem    Boolean @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    customerProjects CustomerProject[]
+  customerProjects CustomerProject[]
+  pallets          Pallet[]
+  containers       Container[]
 
-    @@unique([dbCode, code])
-    @@unique([dbCode, name])
-    @@index([dbCode])
-    @@index([deletedAt])
+  @@unique([dbCode, code])
+  @@unique([dbCode, name])
+  @@index([dbCode])
+  @@index([deletedAt])
 }
 
 model CustomerProject {
-    id           String  @id @default(cuid())
-    dbCode       String
-    code         String
-    name         String
-    description  String?
-    categoryCode String?
-    isActive     Boolean @default(true)
-    isSystem     Boolean @default(false)
+  id           String  @id @default(cuid())
+  dbCode       String
+  code         String
+  name         String
+  description  String?
+  categoryCode String
+  isActive     Boolean @default(true)
+  isSystem     Boolean @default(false)
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    category ProjectCategory? @relation(fields: [dbCode, categoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  category   ProjectCategory @relation(fields: [dbCode, categoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pallets    Pallet[]
+  containers Container[]
 
-    @@unique([dbCode, code])
-    @@unique([dbCode, name])
-    @@index([dbCode])
-    @@index([categoryCode])
-    @@index([deletedAt])
+  @@unique([dbCode, code])
+  @@unique([dbCode, name])
+  @@index([dbCode])
+  @@index([categoryCode])
+  @@index([deletedAt])
 }
 
 //* one status for every model that syncs with sap
 enum SapSyncStatus {
-    PENDING //* portal only, never pushed
-    SYNCED //* linked to a sap item
-    FAILED //* last push was refused, see syncError
+  PENDING //* portal only, never pushed
+  SYNCED //* linked to a sap item
+  FAILED //* last push was refused, see syncError
 }
 
 enum SapSyncRunStatus {
-    RUNNING
-    COMPLETED
-    FAILED
+  RUNNING
+  COMPLETED
+  FAILED
 }
 
 //* PascalCase fields map to sap, camelCase ones are portal only
 model ItemMaster {
-    id        String  @id @default(cuid())
-    dbCode    String
-    notes     String?
-    thumbnail String? //* file attachment id
-    isActive  Boolean @default(true)
+  id        String  @id @default(cuid())
+  dbCode    String
+  notes     String?
+  thumbnail String? //* file attachment id
+  isActive  Boolean @default(true)
 
-    //* sap fields
-    ItemCode   String //* MFG P/N, typed by the user
-    ItemName   String?
-    FirmCode   Int?
-    FirmName   String?
-    ItmsGrpCod Int?
-    ItmsGrpNam String?
+  //* sap fields
+  ItemCode   String //* MFG P/N, typed by the user
+  ItemName   String?
+  FirmCode   Int?
+  FirmName   String?
+  ItmsGrpCod Int?
+  ItmsGrpNam String?
 
-    syncStatus SapSyncStatus @default(PENDING)
-    syncedAt   DateTime?
-    syncError  String?
+  syncStatus SapSyncStatus @default(PENDING)
+  syncedAt   DateTime?
+  syncError  String?
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    @@unique([dbCode, ItemCode])
-    @@index([dbCode])
-    @@index([syncStatus])
-    @@index([deletedAt])
+  @@unique([dbCode, ItemCode])
+  @@index([dbCode])
+  @@index([syncStatus])
+  @@index([deletedAt])
 }
 
 //* sync state per sap database and sync type
 model SapSyncState {
-    id     String @id @default(cuid())
-    dbCode String
-    key    String //* a SAP_SYNC_KEYS value
+  id     String @id @default(cuid())
+  dbCode String
+  key    String //* a SAP_SYNC_KEYS value
 
-    lastSyncAt DateTime? //* start of the last full successful pull, the next pull reads from here
+  lastSyncAt DateTime? //* start of the last full successful pull, the next pull reads from here
 
-    lastRunStatus     SapSyncRunStatus?
-    lastRunStartedAt  DateTime?
-    lastRunFinishedAt DateTime?
-    lastRunError      String?
-    lastRunBy         Int?
-    lastRunCount      Int? //* rows written by the last run
+  lastRunStatus     SapSyncRunStatus?
+  lastRunStartedAt  DateTime?
+  lastRunFinishedAt DateTime?
+  lastRunError      String?
+  lastRunBy         Int?
+  lastRunCount      Int? //* rows written by the last run
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-    sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+  sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([dbCode, key])
+  @@unique([dbCode, key])
 }
 
 //* customers and vendors, PascalCase fields map to sap
 model BusinessPartner {
-    id       String  @id @default(cuid())
-    dbCode   String
-    isActive Boolean @default(true)
+  id       String  @id @default(cuid())
+  dbCode   String
+  isActive Boolean @default(true)
 
-    //* sap fields
-    CardCode   String
-    CardName   String
-    CardType   String //* C customer, S vendor
-    CntctPrsn  String?
-    CurrCode   String?
-    CurrName   String?
-    GroupCode  Int?
-    GroupName  String?
-    GroupNum   Int? //* payment terms
-    PymntGroup String?
-    ShipToDef  String?
-    BillToDef  String?
-    AcctType   String?
-    CmpPrivate String?
+  //* sap fields
+  CardCode   String
+  CardName   String
+  CardType   String //* C customer, S vendor
+  CntctPrsn  String?
+  CurrCode   String?
+  CurrName   String?
+  GroupCode  Int?
+  GroupName  String?
+  GroupNum   Int? //* payment terms
+  PymntGroup String?
+  ShipToDef  String?
+  BillToDef  String?
+  AcctType   String?
+  CmpPrivate String?
 
-    syncStatus SapSyncStatus @default(PENDING)
-    syncedAt   DateTime?
-    syncError  String?
+  syncStatus SapSyncStatus @default(PENDING)
+  syncedAt   DateTime?
+  syncError  String?
 
-    createdAt DateTime  @default(now())
-    updatedAt DateTime  @default(now()) @updatedAt
-    deletedAt DateTime?
-    createdBy Int?
-    updatedBy Int?
-    deletedBy Int?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
 
-    addresses BpAddress[]
-    contacts  Contact[]
+  addresses BpAddress[]
+  contacts  Contact[]
 
-    @@unique([dbCode, CardCode])
-    @@index([dbCode])
-    @@index([CardType])
-    @@index([syncStatus])
-    @@index([deletedAt])
+  @@unique([dbCode, CardCode])
+  @@index([dbCode])
+  @@index([CardType])
+  @@index([syncStatus])
+  @@index([deletedAt])
 }
 
 model BpAddress {
-    id     String @id @default(cuid())
-    dbCode String
+  id     String @id @default(cuid())
+  dbCode String
 
-    //* sap fields
-    CardCode          String
-    AddressName       String
-    AddrType          String //* B bill to, S ship to
-    Street            String?
-    Address2          String?
-    Address3          String?
-    StreetNo          String?
-    BuildingFloorRoom String?
-    Block             String?
-    City              String?
-    ZipCode           String?
-    County            String?
-    CountryCode       String?
-    CountryName       String?
-    StateCode         String?
-    StateName         String?
+  //* sap fields
+  CardCode          String
+  AddressName       String
+  AddrType          String //* B bill to, S ship to
+  Street            String?
+  Address2          String?
+  Address3          String?
+  StreetNo          String?
+  BuildingFloorRoom String?
+  Block             String?
+  City              String?
+  ZipCode           String?
+  County            String?
+  CountryCode       String?
+  CountryName       String?
+  StateCode         String?
+  StateName         String?
 
-    syncStatus SapSyncStatus @default(PENDING) //* PENDING means sap doesn't have this row
-    syncedAt   DateTime?
-    syncError  String?
+  syncStatus SapSyncStatus @default(PENDING) //* PENDING means sap doesn't have this row
+  syncedAt   DateTime?
+  syncError  String?
 
-    //* no soft delete, a removed address is deleted for good
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
-    createdBy Int?
-    updatedBy Int?
+  //* no soft delete, a removed address is deleted for good
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  createdBy Int?
+  updatedBy Int?
 
-    businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
+  businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([dbCode, CardCode, AddressName, AddrType])
-    @@index([CardCode])
+  @@unique([dbCode, CardCode, AddressName, AddrType])
+  @@index([CardCode])
 }
 
 model Contact {
-    id     String @id @default(cuid())
-    dbCode String
+  id     String @id @default(cuid())
+  dbCode String
 
-    //* sap fields
-    CardCode    String
-    ContactName String
-    FirstName   String?
-    LastName    String?
-    Title       String?
-    Position    String?
-    Phone1      String?
-    Phone2      String?
-    MobilePhone String?
-    Email       String?
+  //* sap fields
+  CardCode    String
+  ContactName String
+  FirstName   String?
+  LastName    String?
+  Title       String?
+  Position    String?
+  Phone1      String?
+  Phone2      String?
+  MobilePhone String?
+  Email       String?
 
-    syncStatus SapSyncStatus @default(PENDING) //* PENDING means sap doesn't have this row
-    syncedAt   DateTime?
-    syncError  String?
+  syncStatus SapSyncStatus @default(PENDING) //* PENDING means sap doesn't have this row
+  syncedAt   DateTime?
+  syncError  String?
 
-    //* no soft delete, a removed contact is deleted for good
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
-    createdBy Int?
-    updatedBy Int?
+  //* no soft delete, a removed contact is deleted for good
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  createdBy Int?
+  updatedBy Int?
 
-    businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
+  businessPartner BusinessPartner @relation(fields: [dbCode, CardCode], references: [dbCode, CardCode], onUpdate: Cascade, onDelete: Cascade)
 
-    @@unique([dbCode, CardCode, ContactName])
-    @@index([CardCode])
+  @@unique([dbCode, CardCode, ContactName])
+  @@index([CardCode])
 }
 
 model FileAttachment {
-    id           String @id @default(cuid())
-    moduleName   String //* which module owns the file, e.g. 'items'
-    referenceId  String //* which record in that module, e.g. an item's filingNum, a String so every module can use its own identifier
-    disk         String //* which disk holds the object right now, e.g. 'fs', 's3'
-    key          String @unique
-    originalName String
-    mimeType     String
-    size         Int
+  id           String @id @default(cuid())
+  moduleName   String //* which module owns the file, e.g. 'items'
+  referenceId  String //* which record in that module, e.g. an item's filingNum, a String so every module can use its own identifier
+  disk         String //* which disk holds the object right now, e.g. 'fs', 's3'
+  key          String @unique
+  originalName String
+  mimeType     String
+  size         Int
 
-    //* upload only, an attachment is never edited, so there is nothing to track an update with
-    uploadedAt DateTime @default(now())
-    uploadedBy Int?
+  //* upload only, an attachment is never edited, so there is nothing to track an update with
+  uploadedAt DateTime @default(now())
+  uploadedBy Int?
 
-    uploadedByUser User? @relation(name: "UploadedFileAttachments", fields: [uploadedBy], references: [code], onUpdate: Cascade)
+  uploadedByUser User? @relation(name: "UploadedFileAttachments", fields: [uploadedBy], references: [code], onUpdate: Cascade)
 
-    //* moduleName + referenceId stand in for a foreign key, so one table serves every module
-    @@index([moduleName, referenceId])
-    @@index([uploadedBy])
+  //* moduleName + referenceId stand in for a foreign key, so one table serves every module
+  @@index([moduleName, referenceId])
+  @@index([uploadedBy])
 }
 
 //* multi-tenant sap database switcher
 //* for the time being single user will access the DB and just stored the session seprately
 //* And just query / use session based on the selected SAP DB (db code)
 model SapDatabase {
-    id       String  @id @default(cuid())
-    name     String
-    dbCode   String  @unique
-    order    Int     @default(0)
-    isActive Boolean @default(true) //* inactive DBs will not be shown
+  id       String  @id @default(cuid())
+  name     String
+  dbCode   String  @unique
+  order    Int     @default(0)
+  isActive Boolean @default(true) //* inactive DBs will not be shown
 
-    createdAt        DateTime          @default(now())
-    updatedAt        DateTime          @default(now()) @updatedAt
-    sapSession       SapSession?
-    roleSapDatabases RoleSapDatabase[]
-    sapSyncStates    SapSyncState[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @default(now()) @updatedAt
+  sapSession       SapSession?
+  roleSapDatabases RoleSapDatabase[]
+  sapSyncStates    SapSyncState[]
 }
 
 model SapSession {
-    id        String   @id @default(cuid())
-    dbCode    String   @unique //* one active session per DB
-    b1Session String
-    routeId   String?
-    expiresAt DateTime
+  id        String   @id @default(cuid())
+  dbCode    String   @unique //* one active session per DB
+  b1Session String
+  routeId   String?
+  expiresAt DateTime
 
-    sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
+  sapDatabase SapDatabase @relation(fields: [dbCode], references: [dbCode], onUpdate: Cascade, onDelete: Cascade)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 //* one row per key and scope, a new scope starts back at 1
 model SequenceCounter {
-    id      String @id @default(cuid())
-    key     String //* e.g. BP_CUSTOMER, PALLET
-    scope   String @default("") //* reset bucket, empty never resets
-    current Int    @default(0)
+  id      String @id @default(cuid())
+  key     String //* e.g. BP_CUSTOMER, PALLET
+  scope   String @default("") //* reset bucket, empty never resets
+  current Int    @default(0)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-    @@unique([key, scope])
+  @@unique([key, scope])
 }
 
 //* test table for test data table
 model DataTableTestData {
-    id        String   @id @default(cuid())
-    customer  String
-    email     String
-    status    String
-    amount    Int
-    isValid   Boolean  @default(true)
-    link      String?
-    createdAt DateTime @default(now())
-    updatedAt DateTime @default(now()) @updatedAt
+  id        String   @id @default(cuid())
+  customer  String
+  email     String
+  status    String
+  amount    Int
+  isValid   Boolean  @default(true)
+  link      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
