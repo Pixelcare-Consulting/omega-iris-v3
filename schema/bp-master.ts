@@ -119,6 +119,7 @@ export const bpMasterActiveSchema = z.object({ id: z.string().min(1), type: bpMa
 //* the page loads the lookups once and sends them with every page
 export const bpMasterSyncFromSapPageSchema = z.object({
   type: bpMasterTypeSchema,
+  startedAt: z.iso.datetime(), //* the run's start, ties its activity rows to one batch
   since: z.string().nullable(),
   skip: z.number().int().min(0),
   metaData: z.object({

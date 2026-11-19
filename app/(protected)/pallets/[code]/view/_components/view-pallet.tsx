@@ -14,6 +14,7 @@ import PalletOverviewTab from './tabs/pallet-overview-tab'
 import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { LabelSize } from '@/constants/label'
 import { getPalletLabelPdfHref } from '@/lib/pallet'
@@ -23,7 +24,7 @@ import LabelSizeModal from '@/components/label-size-modal'
 type ViewPalletProps = { pallet: PalletWithRelations }
 
 export default function ViewPallet({ pallet }: ViewPalletProps) {
-  const TABS_TITLE = ['Overview'] as const
+  const TABS_TITLE = ['Overview', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -102,6 +103,10 @@ export default function ViewPallet({ pallet }: ViewPalletProps) {
 
         <TabsContent value='0' className='min-h-0 flex-1'>
           <PalletOverviewTab pallet={pallet} />
+        </TabsContent>
+
+        <TabsContent value='1' className='min-h-0 flex-1'>
+          <ActivityTimeline module='PALLETS' entityId={pallet.id} />
         </TabsContent>
       </Tabs>
 

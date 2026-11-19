@@ -19,6 +19,10 @@ import {
   itemMasterSyncToSapSchema
 } from '@/schema/item-master'
 import { BatchError, BatchErrorEntry, BatchStepResult } from '@/types/batch'
+import { createId } from '@paralleldrive/cuid2'
+import { diffActivity, hasActivityChanges, LogActivityInput, logActivity, toActivityRows, toActivitySummary } from '@/lib/activity-log'
+import { ITEM_MASTER_ACTIVITY_CONFIG } from '@/lib/activity-configs/item-master'
+import type { ItemMaster } from '@/prisma/generated/client'
 import { SapItem } from '@/types/sap'
 
 const SYNC_KEY = SAP_SYNC_KEYS.ITEM_MASTER_FROM_SAP
@@ -69,7 +73,7 @@ export const syncItemMastersFromSapPage = action
   .inputSchema(itemMasterSyncFromSapPageSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { dbCode, userCode, ability } = ctx
-    const { since, skip, metaData } = parsedInput
+    const { startedAt, since, skip, metaData } = parsedInput
     const actionTag = 'SYNC_ITEM_MASTERS_FROM_SAP_PAGE'
 
     if (!ability?.can(PERMISSIONS_ALLOWED_ACTIONS.SYNC_FROM_SAP, PERMISSIONS_CODES.ITEM_MASTERS)) return { ...FORBIDDEN, action: actionTag }
@@ -104,19 +108,24 @@ export const syncItemMastersFromSapPage = action
           chunkArray(rows, LOOKUP_CHUNK_SIZE).map((chunk) =>
             db.itemMaster.findMany({
               //! insensitive equals runs as ILIKE, a code ending in \ would throw unless escaped
-              where: { dbCode, OR: chunk.map((item) => ({ ItemCode: { equals: escapeLikeKeyword(item.ItemCode), mode: 'insensitive' as const } })) }, // prettier-ignore
-              select: { id: true, ItemCode: true }
+              //* whole rows, they are the before side of the activity diff
+              where: { dbCode, OR: chunk.map((item) => ({ ItemCode: { equals: escapeLikeKeyword(item.ItemCode), mode: 'insensitive' as const } })) } // prettier-ignore
             })
           )
         )
       ).flat()
 
-      const existingByCode = new Map(existingRows.map((row) => [row.ItemCode.toLowerCase(), row.id]))
+      const existingByCode = new Map(existingRows.map((row) => [row.ItemCode.toLowerCase(), row]))
 
       const now = new Date()
-      const updates: Prisma.PrismaPromise<unknown>[] = []
-      const creates: Prisma.ItemMasterCreateManyInput[] = []
+      //* all three run together in one transaction at the end of the page
+      const updates: Prisma.PrismaPromise<unknown>[] = [] //* updates to items already in the portal
+      const creates: Prisma.ItemMasterCreateManyInput[] = [] //* new items, saved with one createMany
+      const activities: LogActivityInput[] = [] //* one activity row per item that is new or changed
       const seen = new Set<string>()
+
+      //* one batch per run, the finish summary row carries the same id
+      const activityBase = { actor: ctx.actor, module: 'ITEM_MASTERS' as const, dbCode, batchId: `${SYNC_KEY}:${startedAt}` }
 
       for (const item of rows) {
         const lowered = item.ItemCode.toLowerCase()
@@ -139,14 +148,45 @@ export const syncItemMastersFromSapPage = action
           syncError: null
         }
 
-        const existingId = existingByCode.get(lowered)
+        const existing = existingByCode.get(lowered)
 
         //* portal only fields and deletedAt are never touched
-        if (existingId) updates.push(db.itemMaster.update({ where: { id: existingId }, data: { ...sapFields, updatedBy: userCode } }))
-        else creates.push({ ...sapFields, dbCode, createdBy: userCode, updatedBy: userCode })
+        if (existing) {
+          updates.push(db.itemMaster.update({ where: { id: existing.id }, data: { ...sapFields, updatedBy: userCode } }))
+
+          //* an unchanged item writes no activity, most rows in the lookback window are
+          const changes = diffActivity(ITEM_MASTER_ACTIVITY_CONFIG, existing, { ...existing, ...sapFields })
+
+          if (hasActivityChanges(changes)) {
+            activities.push({
+              ...activityBase,
+              action: 'UPDATE',
+              entity: { id: existing.id, code: sapFields.ItemCode, label: sapFields.ItemName },
+              changes,
+              summary: `${toActivitySummary('UPDATE', changes)} from SAP`
+            })
+          }
+        } else {
+          //* the id is made here so its activity row can point at it
+          const created = { ...sapFields, id: createId(), dbCode, createdBy: userCode, updatedBy: userCode }
+          creates.push(created)
+
+          activities.push({
+            ...activityBase,
+            action: 'CREATE',
+            entity: { id: created.id, code: created.ItemCode, label: created.ItemName },
+            changes: diffActivity(ITEM_MASTER_ACTIVITY_CONFIG, null, created as ItemMaster),
+            summary: 'Created from SAP'
+          })
+        }
       }
 
-      await db.$transaction([...updates, db.itemMaster.createMany({ data: creates, skipDuplicates: true })])
+      //* the activity rows ride in the same transaction, one insert for the page
+      await db.$transaction([
+        ...updates,
+        db.itemMaster.createMany({ data: creates, skipDuplicates: true }),
+        db.activityLog.createMany({ data: toActivityRows(activities) })
+      ])
 
       const result: BatchStepResult & { fetched: number } = {
         succeeded: updates.length + creates.length,
@@ -178,6 +218,17 @@ export const finishItemMasterSyncFromSap = action
       })
 
       if (!isCompleted) return { status: 409, error: true, message: 'A newer sync replaced this one, its result was not saved', action: actionTag } // prettier-ignore
+
+      //* the run's summary, its batch id matches the page rows so View records lists what changed
+      await logActivity(db, {
+        actor: ctx.actor,
+        module: 'ITEM_MASTERS',
+        action: 'SYNC_FROM_SAP',
+        dbCode,
+        batchId: `${SYNC_KEY}:${parsedInput.startedAt}`,
+        summary: `Pulled ${parsedInput.count} ${parsedInput.count === 1 ? 'item' : 'items'} from SAP`,
+        changes: { fields: [], meta: { count: parsedInput.count } }
+      })
 
       return { status: 200, error: false, message: 'Sync completed', action: actionTag }
     } catch (err: any) {
@@ -261,9 +312,23 @@ export const syncItemMastersToSap = action
 
         if (result.ok) {
           //! only the row as sent, a rename during the call would link the wrong code
-          const linked = await db.itemMaster.updateMany({
-            where: { id: row.id, ItemCode: row.ItemCode, syncStatus: { not: 'SYNCED' } },
-            data: { syncStatus: 'SYNCED', syncedAt: new Date(), syncError: null, updatedBy: userCode }
+          const linked = await db.$transaction(async (tx) => {
+            const result = await tx.itemMaster.updateMany({
+              where: { id: row.id, ItemCode: row.ItemCode, syncStatus: { not: 'SYNCED' } },
+              data: { syncStatus: 'SYNCED', syncedAt: new Date(), syncError: null, updatedBy: userCode }
+            })
+
+            if (result.count > 0) {
+              await logActivity(tx, {
+                actor: ctx.actor,
+                module: 'ITEM_MASTERS',
+                action: 'SYNC_TO_SAP',
+                dbCode,
+                entity: { id: row.id, code: row.ItemCode, label: row.ItemName }
+              })
+            }
+
+            return result
           })
 
           if (linked.count > 0) succeeded++

@@ -149,9 +149,9 @@ Mirror the `users` module end to end; touching fewer than these files usually me
 1. **Model.** Add to [prisma/schema.prisma](prisma/schema.prisma) with the standard audit columns (`code @unique @default(autoincrement())`, `createdAt/updatedAt/deletedAt`, `createdBy/updatedBy/deletedBy`), then `pnpm db:push`.
 2. **Permission.** Add a `PERMISSIONS_CODES` entry and a `DEFAULT_PERMISSIONS` record in [constants/permission.ts](constants/permission.ts); reseed with `pnpm db:seed`.
 3. **Schema.** `schema/<entity>.ts` exporting `<entity>FormSchema` + inferred `<Entity>Form`.
-4. **Actions.** `actions/<entity>.ts`: a `COMMON_<ENTITY>_INCLUDE` constant + exported `Prisma.<Entity>GetPayload` type, plain read functions, `getDataTable<Entity>Svr`, `upsert<Entity>`, `delete/restore`, plus the `...Client` wrappers.
+4. **Actions.** `actions/<entity>.ts`: a `COMMON_<ENTITY>_INCLUDE` constant + exported `Prisma.<Entity>GetPayload` type, plain read functions, `getDataTable<Entity>Svr`, `upsert<Entity>`, `delete/restore`, plus the `...Client` wrappers. Each mutation calls `logActivity` in its transaction, with a config in `lib/activity-configs/<entity>.ts` and an `ACTIVITY_MODULES` entry.
 5. **Hooks.** `hooks/safe-actions/<entity>.ts`.
-6. **UI.** `app/(protected)/<entities>/page.tsx` (list), `[code]/page.tsx` (add/edit), `[code]/view/page.tsx` (view), with local pieces under `_components/`.
+6. **UI.** `app/(protected)/<entities>/page.tsx` (list), `[code]/page.tsx` (add/edit), `[code]/view/page.tsx` (view, with an Activity tab), with local pieces under `_components/`.
 7. **Nav.** Add a `MenuItem` to `MENU_GROUPS` in [constants/config.ts](constants/config.ts) with `subjects`/`actions` set to the new permission; the sidebar renders and filters from that data, so no component edit is needed.
 
 No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path that is not in `PUBLIC_ROUTES` / `AUTH_ROUTES` already requires a session.
@@ -218,6 +218,35 @@ A `Session` is one stretch of floor work by one user at one site, for one `Sessi
 - **Mobile.** A mobile app will read and write sessions later. It cannot call server actions, so it goes through route handlers under `/api/mobile/` with better-auth bearer tokens.
 - **Naming.** `User.sessions` is `Session[]`, and better-auth's own relation is `authSessions`. If `@better-auth/cli generate` writes `sessions AuthSession[]` back onto `User`, reject that part.
 - **Users.** `isInternal` marks Omega personnel. `employeeId` is optional, saved uppercase, and unique. Both are `input: false` in [lib/auth.ts](lib/auth.ts), so only `upsertUser` writes them.
+
+## Activity log
+
+Every change a user makes writes one `ActivityLog` row. Each view page reads them back on its Activity tab, and `/audit-logs` lists them all. [lib/activity-log.ts](lib/activity-log.ts) holds the helpers, and [constants/activity-log.ts](constants/activity-log.ts) holds the module and action names.
+
+- **Writing.** Call `logActivity(tx, …)` inside the mutation's `db.$transaction`, so a failed save logs nothing. Pass `ctx.actor` and `diffActivity(config, before, after)`. An `UPDATE` with no changed fields writes nothing, and one that only flips `isActive` or `status` saves as `STATUS`. A write with no stored before values, such as SAP or another third party, keeps its row only when it passes a `summary`.
+- **Configs.** One per module in [lib/activity-configs/](lib/activity-configs/), listing the fields to log with their form labels. Only listed fields are logged, so a password or token never gets in by accident. A lookup uses `format` to show its name, and a child array (BP addresses, role permissions) goes under `children` with a `matchKey`. Configs can't sit in `actions/`, since a `'use server'` file only exports async functions.
+- **Ids and names.** `entityId` is the record `id`, never its `code`, so a rename keeps the history together. The code, name and user name are saved as they were at the time.
+- **Modules.** `ACTIVITY_MODULES` keys are modules, not Prisma models, so customers and vendors log apart. A child module has no permission of its own and reads through its parent.
+- **Colors.** Each action has one of four tones by meaning: green for added or brought back, blue for changed, red for removed or failed, gray for no data changed. A new action picks one of these. Never add a fifth.
+- **Bulk writes.** Bulk generate and imports call `logActivities`, one `createMany` for the chunk, with one `batchId` for the run. That is one `CREATE` per record plus one `BULK_CREATE` or `IMPORT` summary row. The "Show affected records" button in the Audit Logs Actions column filters by that `batchId`, and a "Showing: <summary>" chip clears it. A SAP pull works the same way, with batch id `<sync key>:<startedAt>`. Each page logs only the records that came in new ("Created from SAP") or actually changed ("… from SAP"), and the finish call writes the `SYNC_FROM_SAP` summary. The page adds the log rows as one more `createMany` inside its existing batch transaction, and a new record's id is made with `createId()` first so its row can point at it.
+- **Source.** `WEB`, `MOBILE` or `SYSTEM`. `SYSTEM_ACTOR` has no `userCode` and shows as "System generated". The seed logs every record it makes with it.
+- **Seed.** `lib/activity-log.ts` has no `server-only` and no `db` import, because [prisma/seed.ts](prisma/seed.ts) runs it under plain `tsx` with its own client. Keep it that way.
+- **Reading.** `<ActivityTimeline module entityId />` goes on the view page's Activity tab. Its search also reads the shown change text (`label`, `from`, `to` at any depth) through a `jsonb_path_query` over that one record's rows. Audit Logs never searches the JSON, since there it would scan every row. Matching entries on the first page open with the term highlighted. Both reads drop modules the user can't view and rows from other SAP databases. `/audit-logs` needs `p-audit-logs`, so insert that `Permission` row by hand in production.
+- **Mobile.** A mobile route passes an actor with `source: 'MOBILE'`. How a save gets shared with mobile is under "Sharing a save with mobile" below.
+- **Not logged yet.** [actions/item.ts](actions/item.ts) and [actions/business-partner.ts](actions/business-partner.ts) write straight to SAP and stay out for now.
+- **Growth.** The table only grows, and nothing deletes rows yet. The agreed plan is a scheduled job that deletes rows older than 2 years. Until it exists, an admin can run that delete by hand. Rows are append only in the app, so this job is the one place allowed to remove them.
+
+## Sharing a save with mobile
+
+This is the current plan and not final yet. Check with the user before the first move.
+
+A route handler can't call a server action, so when a module gets an `/api/mobile/` endpoint, its save moves out and both sides call the same code. The web side must behave exactly as before.
+
+- **Where it goes.** `services/<entity>.ts`, starting with `import 'server-only'` and with no `'use server'`. A `'use server'` file turns every exported async function into an endpoint, so a `saveSite(ctx, input)` there would let the browser send its own `ctx` and act as any user.
+- **What moves.** The whole `.action(async ({ ctx, parsedInput }) => { … })` body moves as is into `export async function saveSite(ctx: MutationContext, input: SiteForm)`. That includes the permission check, duplicate checks, transaction, `logActivity` call and return envelope, so mobile gets the same rules. The wrapper becomes `.action(({ ctx, parsedInput }) => saveSite(ctx, parsedInput))` and keeps its name, input and result, so hooks and forms don't change.
+- **Where `ctx` comes from.** `MutationContext` (in `types/`) holds what the bodies read: `userCode`, `dbCode`, `ability`, `actor`. `loadUserContext(session)` in `lib/user-context.ts` does the user, role and ability load that `authenticationMiddleware` does now, and the middleware calls it. It imports only from `lib/`, never `actions/`, to keep the circular import rule in [lib/safe-action.ts](lib/safe-action.ts).
+- **The mobile route.** It gets the session from the bearer token, calls `loadUserContext`, checks SAP database access the way `tenantMiddleware` does, and sets `source: 'MOBILE'`. It runs the input through the same zod schema with `safeParse`, calls the save, and returns the envelope as JSON with its `status`.
+- **Doing it safely.** Move one module per change, and only when its mobile endpoint gets built. The body moves without edits, and any fix found on the way is a separate change. After each move, run `pnpm lint` and `pnpm build`, then on the web page run add, edit, a duplicate name, delete and restore, and check the Activity tab.
 
 ## SAP sync
 

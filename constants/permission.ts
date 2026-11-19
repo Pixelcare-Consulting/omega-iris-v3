@@ -17,6 +17,7 @@ export const PERMISSIONS_CODES = {
   ROLES: 'p-roles',
   USERS: 'p-users',
   SETTINGS: 'p-settings',
+  AUDIT_LOGS: 'p-audit-logs',
 
   //* parents, one per sidebar dropdown, they only group their modules
   BP_MASTER: 'p-bp-master',
@@ -67,6 +68,15 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     parentCode: null,
     isSystem: true,
     allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['AUDIT_LOGS'],
+    name: 'Audit Logs',
+    description: 'Audit Logs Module',
+    isParent: false,
+    parentCode: null,
+    isSystem: true,
+    allowedActions: ['view', 'export']
   },
   {
     code: PERMISSIONS_CODES['BP_MASTER'],

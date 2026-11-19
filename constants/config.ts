@@ -194,7 +194,14 @@ export const MENU_GROUPS: MenuGroup[] = [
       { title: 'QC / Testing', url: '/qc-testing', icon: Icons.flaskConical, items: [] },
       { title: 'NCOR / RMA', url: '/ncor-rma', icon: Icons.packageX, items: [] },
       { title: 'Reports', url: '/reports', icon: Icons.chartColumn, items: [] },
-      { title: 'Audit Logs', url: '/audit-logs', icon: Icons.fileClock, items: [] },
+      {
+        title: 'Audit Logs',
+        url: '/audit-logs',
+        icon: Icons.fileClock,
+        items: [],
+        subjects: PERMISSIONS_CODES.AUDIT_LOGS,
+        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+      },
       { title: 'Settings', url: '/settings', icon: Icons.settings, items: [] }
     ]
   }

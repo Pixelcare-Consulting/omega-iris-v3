@@ -752,6 +752,39 @@ model SequenceCounter {
   @@unique([key, scope])
 }
 
+enum ActivitySource {
+  WEB
+  MOBILE
+  SYSTEM
+}
+
+//* append only, one row per user action, never edited or deleted
+model ActivityLog {
+  id           String         @id @default(cuid())
+  dbCode       String? //* null for global modules like users and roles
+  module       String //* ACTIVITY_MODULES key
+  entityId     String? //* record id, never its code, a code can be renamed
+  entityCode   String? //* code at the time
+  entityLabel  String? //* name at the time
+  parentModule String?
+  parentId     String?
+  action       String //* ACTIVITY_ACTIONS key
+  summary      String
+  changes      Json?
+  source       ActivitySource
+  userCode     Int? //* null for system rows
+  userName     String //* name at the time
+  batchId      String? //* shared by every row of one import or bulk generate
+  createdAt    DateTime       @default(now())
+
+  @@index([module, entityId, createdAt])
+  @@index([parentModule, parentId, createdAt])
+  @@index([dbCode, createdAt])
+  @@index([userCode, createdAt])
+  @@index([batchId])
+  @@index([createdAt])
+}
+
 //* test table for test data table
 model DataTableTestData {
   id        String   @id @default(cuid())

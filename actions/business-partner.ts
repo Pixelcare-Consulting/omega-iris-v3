@@ -220,7 +220,13 @@ export const getDataTableBusinessPartnersSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(businessPartnerTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableBusinessPartnersSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.BUSINESS_PARTNERS)) {
+      return { data: [] as BusinessPartnerRow[], rowCount: 0, error: 'You are not allowed to view this!' as string | null }
+    }
+
+    return getDataTableBusinessPartnersSvr(ctx.dbCode, parsedInput)
+  })
 
 export const upsertBusinessPartner = action
   .use(authenticationMiddleware)

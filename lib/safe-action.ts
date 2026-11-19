@@ -6,6 +6,7 @@ import db from './db'
 import { buildAbilityFor } from './rbac'
 import { toFullName } from './user'
 import { getSapDatabaseAccess } from './sap/access'
+import type { ActivityActor } from '@/types/activity-log'
 
 function handleServerError(error: Error) {
   logger.error(error)
@@ -44,9 +45,12 @@ export const authenticationMiddleware = createMiddleware().define(async ({ next 
 
   const ability = buildAbilityFor({ roleKey: role.key, rolePermissions })
 
+  const actor: ActivityActor = { userCode: code, userName: fullName, source: 'WEB' }
+
   return next({
     ctx: {
       fullName,
+      actor,
       userId: id,
       userCode: code,
       roleCode: role.code,

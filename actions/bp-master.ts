@@ -22,6 +22,8 @@ import { PERMISSIONS_ALLOWED_ACTIONS } from '@/constants/permission'
 import { BP_MASTER_CONFIG, BP_SAP_GROUP_TYPES, BpMasterType } from '@/constants/bp-master'
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { BP_MASTER_ACTIVITY_CONFIG } from '@/lib/activity-configs/bp-master'
 import { SapCountry, SapCurrency, SapPaymentTermsType, SapState } from '@/types/sap'
 
 const COMMON_BP_MASTER_INCLUDE = {
@@ -238,9 +240,10 @@ export const upsertBpMaster = action
   .inputSchema(bpMasterFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { id, CardType: type, addresses, contacts, ...input } = parsedInput
-    const { dbCode, userCode, ability } = ctx
+    const { dbCode, userCode, ability, actor } = ctx
     const { label, permission, canCreate } = BP_MASTER_CONFIG[type]
     const actionTag = 'UPSERT_BP_MASTER'
+    const activityModule = type === 'C' ? 'CUSTOMERS' : 'VENDORS'
     const isCreate = !id
 
     const requiredAction = isCreate ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT
@@ -256,10 +259,26 @@ export const upsertBpMaster = action
 
       //* sap owns a synced partner, only portal fields save
       if (existing?.syncStatus === 'SYNCED') {
-        await db.businessPartner.update({ where: { id: existing.id }, data: { isActive: input.isActive, updatedBy: userCode } })
-        const saved = await db.businessPartner.findUnique({ where: { id: existing.id }, include: COMMON_BP_MASTER_INCLUDE })
+        const saved = await db.$transaction(async (tx) => {
+          const result = await tx.businessPartner.update({
+            where: { id: existing.id },
+            data: { isActive: input.isActive, updatedBy: userCode },
+            include: COMMON_BP_MASTER_INCLUDE
+          })
 
-        return { status: 200, error: false, message: `${label} updated successfully!`, action: actionTag, data: { bpMaster: saved! } }
+          await logActivity(tx, {
+            actor,
+            module: activityModule,
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.CardCode, label: result.CardName },
+            changes: diffActivity(BP_MASTER_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
+        })
+
+        return { status: 200, error: false, message: `${label} updated successfully!`, action: actionTag, data: { bpMaster: saved } }
       }
 
       //* deleted rows count too, the unique key includes them
@@ -393,18 +412,28 @@ export const upsertBpMaster = action
           else await tx.contact.create({ data: { ...contact, ...parent, createdBy: userCode, updatedBy: userCode } })
         }
 
-        return saved
-      })
+        //* the form resets from this, new children get their id back
+        const reloaded = await tx.businessPartner.findUnique({ where: { id: saved.id }, include: COMMON_BP_MASTER_INCLUDE })
 
-      //* the form resets from this, new children get their id back
-      const saved = await db.businessPartner.findUnique({ where: { id: bpMaster.id }, include: COMMON_BP_MASTER_INCLUDE })
+        await logActivity(tx, {
+          actor,
+          module: activityModule,
+          action: existing ? 'UPDATE' : 'CREATE',
+          dbCode,
+          entity: { id: saved.id, code: saved.CardCode, label: saved.CardName },
+          changes: diffActivity(BP_MASTER_ACTIVITY_CONFIG, existing, reloaded)
+        })
+
+        //! written in this same transaction, so it always exists
+        return reloaded!
+      })
 
       return {
         status: 200,
         error: false,
         message: `${label} ${isCreate ? 'created' : 'updated'} successfully!`,
         action: actionTag,
-        data: { bpMaster: saved ?? { ...bpMaster, addresses: [], contacts: [] } }
+        data: { bpMaster }
       }
     } catch (err: any) {
       logger.error(err, `[${actionTag}_ERROR]:`)
@@ -430,14 +459,24 @@ export const setBpMasterActive = action
     if (!ability?.can(PERMISSIONS_ALLOWED_ACTIONS.EDIT, permission) || !canCreate) return { ...FORBIDDEN, action: actionTag }
 
     try {
-      const updated = await db.businessPartner.updateMany({
-        where: { id, dbCode, CardType: type, deletedAt: null },
-        data: { isActive, updatedBy: userCode }
+      const existing = await db.businessPartner.findFirst({ where: { id, dbCode, CardType: type, deletedAt: null }, include: COMMON_BP_MASTER_INCLUDE }) // prettier-ignore
+
+      if (!existing) return { status: 404, error: true, message: `${label} not found!`, action: actionTag }
+
+      const bpMaster = await db.$transaction(async (tx) => {
+        const result = await tx.businessPartner.update({ where: { id }, data: { isActive, updatedBy: userCode }, include: COMMON_BP_MASTER_INCLUDE }) // prettier-ignore
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: type === 'C' ? 'CUSTOMERS' : 'VENDORS',
+          action: 'UPDATE',
+          dbCode,
+          entity: { id: result.id, code: result.CardCode, label: result.CardName },
+          changes: diffActivity(BP_MASTER_ACTIVITY_CONFIG, existing, result)
+        })
+
+        return result
       })
-
-      if (updated.count === 0) return { status: 404, error: true, message: `${label} not found!`, action: actionTag }
-
-      const bpMaster = await db.businessPartner.findUnique({ where: { id }, include: COMMON_BP_MASTER_INCLUDE })
 
       return { status: 200, error: false, message: `${label} updated successfully!`, action: actionTag, data: { bpMaster: bpMaster! } }
     } catch (err: any) {
@@ -469,7 +508,17 @@ export const deleteBpMaster = action
       }
 
       //* children stay, a restore brings them back
-      await db.businessPartner.update({ where: { id: bpMaster.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.businessPartner.update({ where: { id: bpMaster.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: type === 'C' ? 'CUSTOMERS' : 'VENDORS',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: bpMaster.id, code: bpMaster.CardCode, label: bpMaster.CardName }
+        })
+      })
 
       return { status: 200, error: false, message: `${label} deleted successfully!`, action: actionTag }
     } catch (err: any) {
@@ -496,7 +545,17 @@ export const restoreBpMaster = action
 
       if (!bpMaster) return { status: 404, error: true, message: `${label} not found!`, action: actionTag }
 
-      await db.businessPartner.update({ where: { id: bpMaster.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.businessPartner.update({ where: { id: bpMaster.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: type === 'C' ? 'CUSTOMERS' : 'VENDORS',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: bpMaster.id, code: bpMaster.CardCode, label: bpMaster.CardName }
+        })
+      })
 
       return { status: 200, error: false, message: `${label} restored successfully!`, action: actionTag }
     } catch (err: any) {

@@ -87,7 +87,7 @@ export default function ItemMasterSyncFromSap({ userCode, onSynced }: ItemMaster
         steps: Math.ceil(total / SAP_SYNC_FROM_PAGE_SIZE),
         stepSize: (index) => Math.min(SAP_SYNC_FROM_PAGE_SIZE, total - index * SAP_SYNC_FROM_PAGE_SIZE),
         runStep: async (index) => {
-          const pageResponse = await pageAction.executeAsync({ since, skip: index * SAP_SYNC_FROM_PAGE_SIZE, metaData })
+          const pageResponse = await pageAction.executeAsync({ startedAt, since, skip: index * SAP_SYNC_FROM_PAGE_SIZE, metaData })
           const page = pageResponse?.data
 
           if (!page || page.error || !page.data) throw new Error(page?.message ?? PAGE_ERROR_MESSAGE)

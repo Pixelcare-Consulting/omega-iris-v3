@@ -18,12 +18,13 @@ import RoleSapDatabasesTab from './tabs/role-sap-databases-tab'
 import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
 type ViewRoleProps = { role: NonNullable<Awaited<ReturnType<typeof getRoleByCode>>> }
 
 export default function ViewRole({ role }: ViewRoleProps) {
-  const TABS_TITLE = ['Overview', 'Permissions', 'SAP Databases'] as const
+  const TABS_TITLE = ['Overview', 'Permissions', 'SAP Databases', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -95,6 +96,10 @@ export default function ViewRole({ role }: ViewRoleProps) {
 
         <TabsContent value='2' className='min-h-0 flex-1'>
           <RoleSapDatabasesTab role={role} />
+        </TabsContent>
+
+        <TabsContent value='3' className='min-h-0 flex-1'>
+          <ActivityTimeline module='ROLES' entityId={role.id} />
         </TabsContent>
       </Tabs>
     </div>

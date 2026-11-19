@@ -14,6 +14,8 @@ import { customerProjectFormSchema } from '@/schema/customer-project'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { CUSTOMER_PROJECT_ACTIVITY_CONFIG } from '@/lib/activity-configs/customer-project'
 
 const COMMON_CUSTOMER_PROJECT_INCLUDE = { category: true } satisfies Prisma.CustomerProjectInclude
 
@@ -126,7 +128,10 @@ export const getDataTableCustomerProjectsSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableCustomerProjectsSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.CUSTOMER_PROJECTS)) return { data: [], rowCount: 0 }
+    return getDataTableCustomerProjectsSvr(ctx.dbCode, parsedInput)
+  })
 
 export const upsertCustomerProject = action
   .use(authenticationMiddleware)
@@ -167,7 +172,9 @@ export const upsertCustomerProject = action
         return { status: 401, error: true, message, action: actionTag, paths }
       }
 
-      const existing = isCreate ? null : await db.customerProject.findFirst({ where: { id, dbCode, deletedAt: null } })
+      const existing = isCreate
+        ? null
+        : await db.customerProject.findFirst({ where: { id, dbCode, deletedAt: null }, include: COMMON_CUSTOMER_PROJECT_INCLUDE })
 
       if (!isCreate && !existing) return { status: 404, error: true, message: 'Customer project not found!', action: actionTag }
 
@@ -193,9 +200,23 @@ export const upsertCustomerProject = action
       if (existing) {
         //! code and category are never written here, pallet and container codes hold them
         const { categoryCode, ...editable } = data
-        const customerProject = await db.customerProject.update({
-          where: { id: existing.id },
-          data: { ...editable, updatedBy: userCode }
+        const customerProject = await db.$transaction(async (tx) => {
+          const result = await tx.customerProject.update({
+            where: { id: existing.id },
+            data: { ...editable, updatedBy: userCode },
+            include: COMMON_CUSTOMER_PROJECT_INCLUDE
+          })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'CUSTOMER_PROJECTS',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.code, label: result.name },
+            changes: diffActivity(CUSTOMER_PROJECT_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
         })
 
         return {
@@ -208,8 +229,22 @@ export const upsertCustomerProject = action
       }
 
       //* create project
-      const customerProject = await db.customerProject.create({
-        data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode }
+      const customerProject = await db.$transaction(async (tx) => {
+        const result = await tx.customerProject.create({
+          data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode },
+          include: COMMON_CUSTOMER_PROJECT_INCLUDE
+        })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'CUSTOMER_PROJECTS',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.code, label: result.name },
+          changes: diffActivity(CUSTOMER_PROJECT_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
       })
 
       return { status: 200, error: false, message: 'Customer project created successfully!', action: actionTag, data: { customerProject } }
@@ -259,7 +294,17 @@ export const deleteCustomerProject = action
         return { status: 409, error: true, message: 'Customer project is in use by containers!', action: actionTag }
       }
 
-      await db.customerProject.update({ where: { id: customerProject.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.customerProject.update({ where: { id: customerProject.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'CUSTOMER_PROJECTS',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: customerProject.id, code: customerProject.code, label: customerProject.name }
+        })
+      })
 
       return { status: 200, error: false, message: 'Customer project deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -286,9 +331,19 @@ export const restoreCustomerProject = action
 
       if (!customerProject) return { status: 404, error: true, message: 'Customer project not found!', action: actionTag }
 
-      await db.customerProject.update({
-        where: { id: customerProject.id },
-        data: { deletedAt: null, deletedBy: null, updatedBy: userCode }
+      await db.$transaction(async (tx) => {
+        await tx.customerProject.update({
+          where: { id: customerProject.id },
+          data: { deletedAt: null, deletedBy: null, updatedBy: userCode }
+        })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'CUSTOMER_PROJECTS',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: customerProject.id, code: customerProject.code, label: customerProject.name }
+        })
       })
 
       return { status: 200, error: false, message: 'Customer project restored successfully!', action: actionTag }

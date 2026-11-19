@@ -10,12 +10,21 @@ import db from '@/lib/db'
 import { action, authenticationMiddleware } from '@/lib/safe-action'
 import { Prisma } from '@/prisma/generated/client'
 import { getDisk } from '@/lib/storage'
+import { AppAbility } from '@/lib/rbac'
+import { PERMISSIONS_ALLOWED_ACTIONS } from '@/constants/permission'
+import { FILE_ATTACHMENT_MODULE_PERMISSIONS, FileAttachmentModule } from '@/constants/file-attachment'
 
 const COMMON_FILE_ATTACHMENT_INCLUDE = {
   uploadedByUser: { select: { code: true, name: true } }
 } satisfies Prisma.FileAttachmentInclude
 
 export type FileAttachmentWithInclude = Prisma.FileAttachmentGetPayload<{ include: typeof COMMON_FILE_ATTACHMENT_INCLUDE }>
+
+//* an attachment follows its module's permission, an unknown module is never allowed
+function canUseModule(ability: AppAbility, moduleName: string | null | undefined, actions: string[]) {
+  const permission = moduleName ? FILE_ATTACHMENT_MODULE_PERMISSIONS[moduleName as FileAttachmentModule] : undefined
+  return !!permission && actions.some((action) => ability?.can(action, permission))
+}
 
 export async function getFileAttachments(moduleName?: string | null, referenceId?: string | null) {
   if (!moduleName || !referenceId) return []
@@ -35,7 +44,10 @@ export async function getFileAttachments(moduleName?: string | null, referenceId
 export const getFileAttachmentsClient = action
   .use(authenticationMiddleware)
   .inputSchema(z.object({ moduleName: z.string().nullish(), referenceId: z.string().nullish() }))
-  .action(async ({ parsedInput }) => getFileAttachments(parsedInput.moduleName, parsedInput.referenceId))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!canUseModule(ctx.ability, parsedInput.moduleName, [PERMISSIONS_ALLOWED_ACTIONS.VIEW])) return []
+    return getFileAttachments(parsedInput.moduleName, parsedInput.referenceId)
+  })
 
 export async function getFileAttachmentById(id?: string | null) {
   if (!id) return null
@@ -51,7 +63,11 @@ export async function getFileAttachmentById(id?: string | null) {
 export const getFileAttachmentByIdClient = action
   .use(authenticationMiddleware)
   .inputSchema(z.object({ id: z.string().nullish() }))
-  .action(async ({ parsedInput }) => getFileAttachmentById(parsedInput.id))
+  .action(async ({ ctx, parsedInput }) => {
+    const fileAttachment = await getFileAttachmentById(parsedInput.id)
+    if (!fileAttachment || !canUseModule(ctx.ability, fileAttachment.moduleName, [PERMISSIONS_ALLOWED_ACTIONS.VIEW])) return null
+    return fileAttachment
+  })
 
 export async function getDataTableFileAttachmentsSvr(moduleName: string, referenceId: string, params: DataTableParams) {
   const { perPage, offset, globalFilter, sorting, columnFilters, isExport } = getDataTableParams(params)
@@ -106,15 +122,16 @@ export async function getDataTableFileAttachmentsSvr(moduleName: string, referen
 export const getDataTableFileAttachmentsSvrClient = action
   .use(authenticationMiddleware)
   .inputSchema(dataTableParamsSchema.extend({ moduleName: z.string(), referenceId: z.string() }))
-  .action(async ({ parsedInput }) => {
+  .action(async ({ ctx, parsedInput }) => {
     const { moduleName, referenceId, ...params } = parsedInput
+    if (!canUseModule(ctx.ability, moduleName, [PERMISSIONS_ALLOWED_ACTIONS.VIEW])) return { data: [], rowCount: 0 }
     return getDataTableFileAttachmentsSvr(moduleName, referenceId, params)
   })
 
 export const deleteFileAttachment = action
   .use(authenticationMiddleware)
   .inputSchema(z.object({ id: z.string() }))
-  .action(async ({ parsedInput }) => {
+  .action(async ({ ctx, parsedInput }) => {
     const { id } = parsedInput
     const actionTag = 'DELETE_FILE_ATTACHMENT'
 
@@ -122,6 +139,11 @@ export const deleteFileAttachment = action
       const fileAttachment = await db.fileAttachment.findUnique({ where: { id } })
 
       if (!fileAttachment) return { error: true, status: 404, message: 'Attachment not found!', action: actionTag }
+
+      //* removing a file is editing its record
+      if (!canUseModule(ctx.ability, fileAttachment.moduleName, [PERMISSIONS_ALLOWED_ACTIONS.EDIT])) {
+        return { error: true, status: 403, message: 'You are not allowed to do this!', action: actionTag }
+      }
 
       //! the object delete sits inside the transaction, a disk failure rolls the row back
       await db.$transaction(async (tx) => {
