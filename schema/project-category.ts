@@ -8,6 +8,7 @@ export const projectCategoryFormSchema = z.object({
   name: z.string().trim().min(1, { message: 'Name is required' }),
   description: optionalString,
   isPoRequired: z.boolean(),
+  isMandatoryQc: z.boolean(),
   isActive: z.boolean()
 })
 

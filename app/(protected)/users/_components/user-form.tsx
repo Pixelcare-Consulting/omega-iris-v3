@@ -258,7 +258,13 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                 </Column>
 
                 <Column md={6} lg={3}>
-                  <InputField control={form.control} name='employeeId' label='Employee ID' description='Employee ID must be unique' />
+                  <InputField
+                    control={form.control}
+                    name='employeeId'
+                    label='Employee ID'
+                    description='Employee ID must be unique'
+                    transform={(value) => value.toUpperCase()}
+                  />
                 </Column>
 
                 <Column md={6} lg={3}>

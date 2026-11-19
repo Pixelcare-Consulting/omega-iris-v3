@@ -60,9 +60,7 @@ export async function getItemSeries(dbCode: string) {
     return { series: [] as SapSeries[], defaultSeries: null }
   }
 
-  const series = list.data.value
-    .filter((s) => s.IsManual !== 'tYES' && s.Locked !== 'tYES')
-    .sort((a, b) => a.Name.localeCompare(b.Name))
+  const series = list.data.value.filter((s) => s.IsManual !== 'tYES' && s.Locked !== 'tYES').sort((a, b) => a.Name.localeCompare(b.Name))
   const defaultCode = defaultSeries.ok ? defaultSeries.data.Series : null
 
   return { series, defaultSeries: series.some((s) => s.Series === defaultCode) ? defaultCode : (series[0]?.Series ?? null) }

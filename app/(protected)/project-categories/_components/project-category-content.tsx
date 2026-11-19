@@ -92,6 +92,27 @@ export default function ProjectCategoryContent() {
       }
     },
     {
+      accessorFn: (row) => (row?.isMandatoryQc ? 'Yes' : 'No'),
+      accessorKey: 'isMandatoryQc',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Mandatory QC' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isMandatoryQc}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Mandatory QC',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isMandatoryQc ? 'Yes' : 'No')
+      }
+    },
+    {
       accessorFn: (row) => (row?.isActive ? 'Yes' : 'No'),
       accessorKey: 'isActive',
       filterFn: multiSelectFilterFn,
@@ -326,6 +347,7 @@ export default function ProjectCategoryContent() {
             <DataTableColumnFilterWrapper>
               <DataTableGlobalSearch table={table} isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isPoRequired')} title='PO Required' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isMandatoryQc')} title='Mandatory QC' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={isLoading} />
