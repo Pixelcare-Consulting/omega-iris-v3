@@ -71,3 +71,10 @@ export function formatDate(value: string | Date | null | undefined, formatStr: s
   const formatted = format(date, formatStr)
   return formatted
 }
+
+//* view page label for a related record, flags deleted or inactive rows
+export function toCodeName(row: { code: string; name: string; isActive?: boolean; deletedAt?: Date | null } | null | undefined) {
+  if (!row) return null
+  const suffix = row.deletedAt ? ' (Deleted)' : row.isActive === false ? ' (Inactive)' : ''
+  return `${row.code} (${row.name})${suffix}`
+}

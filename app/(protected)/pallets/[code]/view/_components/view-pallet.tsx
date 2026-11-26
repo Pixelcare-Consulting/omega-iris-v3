@@ -20,11 +20,13 @@ import { LabelSize } from '@/constants/label'
 import { getPalletLabelPdfHref } from '@/lib/pallet'
 import { useDisclosure } from '@/hooks/use-disclosure'
 import LabelSizeModal from '@/components/label-size-modal'
+import ContentWrapper from '@/components/content-wrapper'
+import UnderDevelopment from '@/components/under-development'
 
 type ViewPalletProps = { pallet: PalletWithRelations }
 
 export default function ViewPallet({ pallet }: ViewPalletProps) {
-  const TABS_TITLE = ['Overview', 'Activity'] as const
+  const TABS_TITLE = ['Overview', 'Containers', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -106,6 +108,12 @@ export default function ViewPallet({ pallet }: ViewPalletProps) {
         </TabsContent>
 
         <TabsContent value='1' className='min-h-0 flex-1'>
+          <ContentWrapper className='h-full'>
+            <UnderDevelopment />
+          </ContentWrapper>
+        </TabsContent>
+
+        <TabsContent value='2' className='min-h-0 flex-1'>
           <ActivityTimeline module='PALLETS' entityId={pallet.id} />
         </TabsContent>
       </Tabs>

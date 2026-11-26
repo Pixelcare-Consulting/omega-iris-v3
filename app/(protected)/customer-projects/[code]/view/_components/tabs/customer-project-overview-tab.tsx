@@ -11,6 +11,7 @@ import ReadOnlyField from '@/components/read-only-field'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/components/record-meta-data'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { toCodeName } from '@/lib/utils'
 
 type CustomerProjectOverviewTabProps = { customerProject: CustomerProjectWithRelations }
 
@@ -40,8 +41,7 @@ export default function CustomerProjectOverviewTab({ customerProject }: Customer
               value={
                 customerProject.category ? (
                   <RelationLink href={`/project-categories/${customerProject.category.code}/view`}>
-                    {customerProject.category.code} - {customerProject.category.name}
-                    {customerProject.category.deletedAt ? ' (Deleted)' : !customerProject.category.isActive ? ' (Inactive)' : ''}
+                    {toCodeName(customerProject.category)}
                   </RelationLink>
                 ) : (
                   ''

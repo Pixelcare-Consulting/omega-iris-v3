@@ -15,6 +15,8 @@ import { DayPicker } from 'react-day-picker'
 import { FileUploadProps } from '@/components/ui/file-upload'
 
 export type PageMetadata = { title: string; description: string }
+
+export type CodeName = { code: string; name: string } //* reference data common shape
 export type DuplicateFields = { field: string; name: string; message: string }[]
 
 export type FieldSetProps = React.ComponentProps<'fieldset'>
