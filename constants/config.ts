@@ -160,12 +160,34 @@ export const MENU_GROUPS: MenuGroup[] = [
             subjects: PERMISSIONS_CODES.CONTAINERS,
             actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
           },
-          { title: 'MPN / Unique ID', url: '/mpn', icon: Icons.fingerprint, items: [] },
-          { title: 'Inbound', url: '/inbound', icon: Icons.packageOpen, items: [] },
+          {
+            title: 'Unique ID',
+            url: '/packaging-units',
+            icon: Icons.fingerprint,
+            items: [],
+            subjects: PERMISSIONS_CODES.PACKAGING_UNITS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
+          {
+            title: 'Inbound',
+            url: '/inbound',
+            icon: Icons.packageOpen,
+            items: [],
+            subjects: PERMISSIONS_CODES.INBOUNDS,
+            actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+          },
           { title: 'Outbound', url: '/outbound', icon: Icons.truck, items: [] },
           { title: 'Cycle Count', url: '/cycle-counts', icon: Icons.listChecks, items: [] },
           { title: 'Movement', url: '/inventory-movements', icon: Icons.arrowLeftRight, items: [] }
         ]
+      },
+      {
+        title: 'Sessions',
+        url: '/sessions',
+        icon: Icons.clock,
+        items: [],
+        subjects: PERMISSIONS_CODES.SESSIONS,
+        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
       },
       {
         title: 'Project',
@@ -194,7 +216,14 @@ export const MENU_GROUPS: MenuGroup[] = [
       { title: 'QC / Testing', url: '/qc-testing', icon: Icons.flaskConical, items: [] },
       { title: 'NCOR / RMA', url: '/ncor-rma', icon: Icons.packageX, items: [] },
       { title: 'Reports', url: '/reports', icon: Icons.chartColumn, items: [] },
-      { title: 'Audit Logs', url: '/audit-logs', icon: Icons.fileClock, items: [] },
+      {
+        title: 'Audit Logs',
+        url: '/audit-logs',
+        icon: Icons.fileClock,
+        items: [],
+        subjects: PERMISSIONS_CODES.AUDIT_LOGS,
+        actions: [PERMISSIONS_ALLOWED_ACTIONS.VIEW]
+      },
       { title: 'Settings', url: '/settings', icon: Icons.settings, items: [] }
     ]
   }

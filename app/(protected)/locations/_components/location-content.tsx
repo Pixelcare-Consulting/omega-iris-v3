@@ -35,6 +35,7 @@ import AlertModal from '@/components/alert-modal'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import CanView from '@/components/rbac/can-view'
+import RelationLink from '@/components/relation-link'
 import { formatDate } from '@/lib/utils'
 import { exportToExcel } from '@/lib/xlsx'
 import DataTableColumnFilterWrapper from '@/components/data-table/data-table-column-filter-wrapper'
@@ -136,15 +137,23 @@ export default function LocationContent({ siteOptions, processZoneOptions }: Loc
       accessorKey: 'siteCode',
       filterFn: multiSelectFilterFn,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Site' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.siteCode} highlight={table.getState().globalFilter} />,
-      meta: { title: 'Site', options: siteOptions, exportValue: (row) => `${row.siteCode} - ${row.site.name}` }
+      cell: ({ row: { original: data } }) => (
+        <RelationLink href={`/sites/${encodeURIComponent(data.siteCode)}/view`}>
+          <DataTableTextCell value={data.siteCode} highlight={table.getState().globalFilter} />
+        </RelationLink>
+      ),
+      meta: { title: 'Site', options: siteOptions, exportValue: (row) => `${row.siteCode} (${row.site.name})` }
     },
     {
       accessorKey: 'processZoneCode',
       filterFn: multiSelectFilterFn,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Process Zone' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.processZoneCode} highlight={table.getState().globalFilter} />,
-      meta: { title: 'Process Zone', options: processZoneOptions, exportValue: (row) => `${row.processZoneCode} - ${row.processZone.name}` }
+      cell: ({ row: { original: data } }) => (
+        <RelationLink href={`/process-zones/${encodeURIComponent(data.processZoneCode)}/view`}>
+          <DataTableTextCell value={data.processZoneCode} highlight={table.getState().globalFilter} />
+        </RelationLink>
+      ),
+      meta: { title: 'Process Zone', options: processZoneOptions, exportValue: (row) => `${row.processZoneCode} (${row.processZone.name})` }
     },
     {
       accessorKey: 'bayCode',

@@ -14,12 +14,13 @@ import ProjectCategoryOverviewTab from './tabs/project-category-overview-tab'
 import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
 type ViewProjectCategoryProps = { projectCategory: ProjectCategory }
 
 export default function ViewProjectCategory({ projectCategory }: ViewProjectCategoryProps) {
-  const TABS_TITLE = ['Overview'] as const
+  const TABS_TITLE = ['Overview', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -53,13 +54,11 @@ export default function ViewProjectCategory({ projectCategory }: ViewProjectCate
                 </DropdownMenuItem>
               </CanView>
 
-              {!projectCategory.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/project-categories/${projectCategory.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/project-categories/${projectCategory.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -82,6 +81,10 @@ export default function ViewProjectCategory({ projectCategory }: ViewProjectCate
 
         <TabsContent value='0' className='min-h-0 flex-1'>
           <ProjectCategoryOverviewTab projectCategory={projectCategory} />
+        </TabsContent>
+
+        <TabsContent value='1' className='min-h-0 flex-1'>
+          <ActivityTimeline module='PROJECT_CATEGORIES' entityId={projectCategory.id} />
         </TabsContent>
       </Tabs>
     </div>

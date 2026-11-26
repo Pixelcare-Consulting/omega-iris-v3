@@ -9,15 +9,14 @@ import { Separator } from '@/components/ui/separator'
 import ReadOnlyField from '@/components/read-only-field'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/components/record-meta-data'
+import RelationLink from '@/components/relation-link'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { STORAGE_UNIT_STATUS_LABELS } from '@/constants/storage-unit'
 import { CONTAINER_TYPE_LABELS } from '@/constants/container'
-import { formatDate } from '@/lib/utils'
+import { formatDate, toCodeName } from '@/lib/utils'
 import { QRCodeSVG } from 'qrcode.react'
 
 type ContainerOverviewTabProps = { container: ContainerWithRelations }
-
-const toCodeName = (row: { code: string; name: string } | null) => (row ? `${row.code} - ${row.name}` : null)
 
 export default function ContainerOverviewTab({ container }: ContainerOverviewTabProps) {
   return (
@@ -62,7 +61,14 @@ export default function ContainerOverviewTab({ container }: ContainerOverviewTab
           </Column>
 
           <Column md={6} lg={3}>
-            <ReadOnlyField title='Location' value={toCodeName(container.location)} />
+            <ReadOnlyField
+              title='Location'
+              value={
+                <RelationLink href={`/locations/${encodeURIComponent(container.location.code)}/view`}>
+                  {toCodeName(container.location)}
+                </RelationLink>
+              }
+            />
           </Column>
 
           <Column md={6} lg={3}>
@@ -88,11 +94,29 @@ export default function ContainerOverviewTab({ container }: ContainerOverviewTab
           {!container.isGeneralPurpose && (
             <>
               <Column md={6} lg={3}>
-                <ReadOnlyField title='Project Category' value={toCodeName(container.projectCategory)} />
+                <ReadOnlyField
+                  title='Project Category'
+                  value={
+                    container.projectCategory ? (
+                      <RelationLink href={`/project-categories/${encodeURIComponent(container.projectCategory.code)}/view`}>
+                        {toCodeName(container.projectCategory)}
+                      </RelationLink>
+                    ) : null
+                  }
+                />
               </Column>
 
               <Column md={6} lg={3}>
-                <ReadOnlyField title='Customer Project' value={toCodeName(container.customerProject)} />
+                <ReadOnlyField
+                  title='Customer Project'
+                  value={
+                    container.customerProject ? (
+                      <RelationLink href={`/customer-projects/${encodeURIComponent(container.customerProject.code)}/view`}>
+                        {toCodeName(container.customerProject)}
+                      </RelationLink>
+                    ) : null
+                  }
+                />
               </Column>
             </>
           )}
@@ -103,7 +127,14 @@ export default function ContainerOverviewTab({ container }: ContainerOverviewTab
           </Column>
 
           <Column md={6} lg={3}>
-            <ReadOnlyField title='Pallet' value={container.palletCode} />
+            <ReadOnlyField
+              title='Pallet'
+              value={
+                container.palletCode ? (
+                  <RelationLink href={`/pallets/${encodeURIComponent(container.palletCode)}/view`}>{container.palletCode}</RelationLink>
+                ) : null
+              }
+            />
           </Column>
 
           <Column>

@@ -39,6 +39,39 @@ export default function SiteOverviewTab({ site }: SiteOverviewTabProps) {
 
           <Column>
             <Separator className='mt-3 mb-4' />
+            <ReadOnlyFieldHeader title='Processes' description='Processes the site allows' />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Inbound' description='Site can receive stock' value={site.isEnableInbound ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Outbound' description='Site can ship stock' value={site.isEnableOutbound ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='Movement' description='Site can move stock' value={site.isEnableMovement ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Cycle Count'
+              description='Stock at the site can be counted'
+              value={site.isEnableCycleCount ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='QC/Testing' description='Stock at the site can be tested' value={site.isEnableQcTesting ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField title='RMA' description='Site can take returns' value={site.isEnableRma ? 'Yes' : 'No'} />
+          </Column>
+
+          <Column>
+            <Separator className='mt-3 mb-4' />
             <ReadOnlyFieldHeader title='Settings' description="Site's setting" />
           </Column>
 

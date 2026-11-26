@@ -9,14 +9,13 @@ import { Separator } from '@/components/ui/separator'
 import ReadOnlyField from '@/components/read-only-field'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/components/record-meta-data'
+import RelationLink from '@/components/relation-link'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { STORAGE_UNIT_STATUS_LABELS } from '@/constants/storage-unit'
-import { formatDate } from '@/lib/utils'
+import { formatDate, toCodeName } from '@/lib/utils'
 import { QRCodeSVG } from 'qrcode.react'
 
 type PalletOverviewTabProps = { pallet: PalletWithRelations }
-
-const toCodeName = (row: { code: string; name: string } | null) => (row ? `${row.code} - ${row.name}` : null)
 
 export default function PalletOverviewTab({ pallet }: PalletOverviewTabProps) {
   return (
@@ -57,7 +56,14 @@ export default function PalletOverviewTab({ pallet }: PalletOverviewTabProps) {
           </Column>
 
           <Column md={6} lg={3}>
-            <ReadOnlyField title='Location' value={toCodeName(pallet.location)} />
+            <ReadOnlyField
+              title='Location'
+              value={
+                <RelationLink href={`/locations/${encodeURIComponent(pallet.location.code)}/view`}>
+                  {toCodeName(pallet.location)}
+                </RelationLink>
+              }
+            />
           </Column>
 
           <Column md={6} lg={3}>
@@ -83,11 +89,29 @@ export default function PalletOverviewTab({ pallet }: PalletOverviewTabProps) {
           {!pallet.isGeneralPurpose && (
             <>
               <Column md={6} lg={3}>
-                <ReadOnlyField title='Project Category' value={toCodeName(pallet.projectCategory)} />
+                <ReadOnlyField
+                  title='Project Category'
+                  value={
+                    pallet.projectCategory ? (
+                      <RelationLink href={`/project-categories/${encodeURIComponent(pallet.projectCategory.code)}/view`}>
+                        {toCodeName(pallet.projectCategory)}
+                      </RelationLink>
+                    ) : null
+                  }
+                />
               </Column>
 
               <Column md={6} lg={3}>
-                <ReadOnlyField title='Customer Project' value={toCodeName(pallet.customerProject)} />
+                <ReadOnlyField
+                  title='Customer Project'
+                  value={
+                    pallet.customerProject ? (
+                      <RelationLink href={`/customer-projects/${encodeURIComponent(pallet.customerProject.code)}/view`}>
+                        {toCodeName(pallet.customerProject)}
+                      </RelationLink>
+                    ) : null
+                  }
+                />
               </Column>
             </>
           )}

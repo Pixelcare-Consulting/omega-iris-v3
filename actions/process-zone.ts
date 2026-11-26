@@ -14,6 +14,8 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
 import { FilterOption } from '@/types/data-table'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { PROCESS_ZONE_ACTIVITY_CONFIG } from '@/lib/activity-configs/process-zone'
 
 export async function getProcessZones(dbCode: string | null) {
   if (!dbCode) return []
@@ -111,7 +113,10 @@ export const getDataTableProcessZonesSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableProcessZonesSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.PROCESS_ZONES)) return { data: [], rowCount: 0 }
+    return getDataTableProcessZonesSvr(ctx.dbCode, parsedInput)
+  })
 
 export const upsertProcessZone = action
   .use(authenticationMiddleware)
@@ -158,13 +163,21 @@ export const upsertProcessZone = action
 
         if (!existing) return { status: 404, error: true, message: 'Process zone not found!', action: actionTag }
 
-        //! the table hides these for system rows, this is the check behind it
-        if (existing.isSystem) {
-          return { status: 403, error: true, message: 'System generated process zone cannot be edited!', action: actionTag }
-        }
-
         //! code is never written here, even if the client sent one
-        const processZone = await db.processZone.update({ where: { id }, data: { ...data, updatedBy: userCode } })
+        const processZone = await db.$transaction(async (tx) => {
+          const result = await tx.processZone.update({ where: { id }, data: { ...data, updatedBy: userCode } })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'PROCESS_ZONES',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.code, label: result.name },
+            changes: diffActivity(PROCESS_ZONE_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
+        })
 
         return {
           status: 200,
@@ -176,8 +189,19 @@ export const upsertProcessZone = action
       }
 
       //* create process zone
-      const processZone = await db.processZone.create({
-        data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode }
+      const processZone = await db.$transaction(async (tx) => {
+        const result = await tx.processZone.create({ data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PROCESS_ZONES',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.code, label: result.name },
+          changes: diffActivity(PROCESS_ZONE_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
       })
 
       return { status: 200, error: false, message: 'Process zone created successfully!', action: actionTag, data: { processZone } }
@@ -221,7 +245,17 @@ export const deleteProcessZone = action
         return { status: 409, error: true, message: 'Process zone is in use by locations!', action: actionTag }
       }
 
-      await db.processZone.update({ where: { id: processZone.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.processZone.update({ where: { id: processZone.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PROCESS_ZONES',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: processZone.id, code: processZone.code, label: processZone.name }
+        })
+      })
 
       return { status: 200, error: false, message: 'Process zone deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -248,9 +282,16 @@ export const restoreProcessZone = action
 
       if (!processZone) return { status: 404, error: true, message: 'Process zone not found!', action: actionTag }
 
-      await db.processZone.update({
-        where: { id: processZone.id },
-        data: { deletedAt: null, deletedBy: null, updatedBy: userCode }
+      await db.$transaction(async (tx) => {
+        await tx.processZone.update({ where: { id: processZone.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PROCESS_ZONES',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: processZone.id, code: processZone.code, label: processZone.name }
+        })
       })
 
       return { status: 200, error: false, message: 'Process zone restored successfully!', action: actionTag }

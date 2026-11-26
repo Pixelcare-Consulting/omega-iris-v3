@@ -14,6 +14,8 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
 import { FilterOption } from '@/types/data-table'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { PROJECT_CATEGORY_ACTIVITY_CONFIG } from '@/lib/activity-configs/project-category'
 
 export async function getProjectCategories(dbCode: string | null) {
   if (!dbCode) return []
@@ -73,7 +75,7 @@ export async function getDataTableProjectCategoriesSvr(dbCode: string, params: D
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
       stringFields: ['code', 'name', 'description'],
-      booleanFields: [{ field: 'isActive' }]
+      booleanFields: [{ field: 'isPoRequired' }, { field: 'isMandatoryQc' }, { field: 'isActive' }]
     })
 
     Object.assign(where, filter)
@@ -84,7 +86,7 @@ export async function getDataTableProjectCategoriesSvr(dbCode: string, params: D
     const currentFilters = where.AND as Prisma.ProjectCategoryWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      booleanFields: [{ field: 'isActive' }],
+      booleanFields: [{ field: 'isPoRequired' }, { field: 'isMandatoryQc' }, { field: 'isActive' }],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
     })
 
@@ -111,7 +113,10 @@ export const getDataTableProjectCategoriesSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableProjectCategoriesSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.PROJECT_CATEGORIES)) return { data: [], rowCount: 0 }
+    return getDataTableProjectCategoriesSvr(ctx.dbCode, parsedInput)
+  })
 
 export const upsertProjectCategory = action
   .use(authenticationMiddleware)
@@ -158,13 +163,21 @@ export const upsertProjectCategory = action
 
         if (!existing) return { status: 404, error: true, message: 'Project category not found!', action: actionTag }
 
-        //! the table hides these for system rows, this is the check behind it
-        if (existing.isSystem) {
-          return { status: 403, error: true, message: 'System generated project category cannot be edited!', action: actionTag }
-        }
-
         //! code is never written here, even if the client sent one
-        const projectCategory = await db.projectCategory.update({ where: { id }, data: { ...data, updatedBy: userCode } })
+        const projectCategory = await db.$transaction(async (tx) => {
+          const result = await tx.projectCategory.update({ where: { id }, data: { ...data, updatedBy: userCode } })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'PROJECT_CATEGORIES',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.code, label: result.name },
+            changes: diffActivity(PROJECT_CATEGORY_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
+        })
 
         return {
           status: 200,
@@ -176,8 +189,19 @@ export const upsertProjectCategory = action
       }
 
       //* create category
-      const projectCategory = await db.projectCategory.create({
-        data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode }
+      const projectCategory = await db.$transaction(async (tx) => {
+        const result = await tx.projectCategory.create({ data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PROJECT_CATEGORIES',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.code, label: result.name },
+          changes: diffActivity(PROJECT_CATEGORY_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
       })
 
       return { status: 200, error: false, message: 'Project category created successfully!', action: actionTag, data: { projectCategory } }
@@ -233,7 +257,17 @@ export const deleteProjectCategory = action
         return { status: 409, error: true, message: 'Category is in use by containers!', action: actionTag }
       }
 
-      await db.projectCategory.update({ where: { id: projectCategory.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.projectCategory.update({ where: { id: projectCategory.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PROJECT_CATEGORIES',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: projectCategory.id, code: projectCategory.code, label: projectCategory.name }
+        })
+      })
 
       return { status: 200, error: false, message: 'Project category deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -260,9 +294,19 @@ export const restoreProjectCategory = action
 
       if (!projectCategory) return { status: 404, error: true, message: 'Project category not found!', action: actionTag }
 
-      await db.projectCategory.update({
-        where: { id: projectCategory.id },
-        data: { deletedAt: null, deletedBy: null, updatedBy: userCode }
+      await db.$transaction(async (tx) => {
+        await tx.projectCategory.update({
+          where: { id: projectCategory.id },
+          data: { deletedAt: null, deletedBy: null, updatedBy: userCode }
+        })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PROJECT_CATEGORIES',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: projectCategory.id, code: projectCategory.code, label: projectCategory.name }
+        })
       })
 
       return { status: 200, error: false, message: 'Project category restored successfully!', action: actionTag }

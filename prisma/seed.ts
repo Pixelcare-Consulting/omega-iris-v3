@@ -11,6 +11,14 @@ import { DEFAULT_SAP_DATABASES } from '@/constants/sap'
 import { DEFAULT_PROJECT_CATEGORIES } from '@/constants/project-category'
 import { DEFAULT_SITES } from '@/constants/site'
 import { DEFAULT_PROCESS_ZONES } from '@/constants/process-zones'
+import { createId } from '@paralleldrive/cuid2'
+import { SYSTEM_ACTOR } from '@/constants/activity-log'
+import { diffActivity, logActivities } from '@/lib/activity-log'
+import { ROLE_ACTIVITY_CONFIG, ROLE_ACTIVITY_INCLUDE } from '@/lib/activity-configs/role'
+import { USER_ACTIVITY_CONFIG } from '@/lib/activity-configs/user'
+import { PROJECT_CATEGORY_ACTIVITY_CONFIG } from '@/lib/activity-configs/project-category'
+import { SITE_ACTIVITY_CONFIG } from '@/lib/activity-configs/site'
+import { PROCESS_ZONE_ACTIVITY_CONFIG } from '@/lib/activity-configs/process-zone'
 
 const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL })
 const db = new PrismaClient({ adapter })
@@ -73,6 +81,9 @@ async function main() {
       }
     })
 
+    //* sign up cannot set it, the field is input false
+    await db.user.update({ where: { username: 'admin' }, data: { isInternal: true } })
+
     //* one copy of each default per sap database, flagged system so they stay view only
     logger.info('Create default project categories...')
     await db.projectCategory.createMany({
@@ -88,6 +99,55 @@ async function main() {
     await db.processZone.createMany({
       data: activeSapDatabase.flatMap(({ dbCode }) => DEFAULT_PROCESS_ZONES.map((row) => ({ ...row, dbCode, isSystem: true })))
     })
+
+    //* one batch for the whole run, so the audit log can list everything the seed made
+    logger.info('Log seeded records...')
+
+    const [roles, users, projectCategories, sites, processZones] = await Promise.all([
+      db.role.findMany({ include: ROLE_ACTIVITY_INCLUDE }),
+      db.user.findMany({ include: { role: true } }),
+      db.projectCategory.findMany(),
+      db.site.findMany(),
+      db.processZone.findMany()
+    ])
+
+    const seeded = { actor: SYSTEM_ACTOR, action: 'CREATE' as const, batchId: createId(), summary: 'Created by seed' }
+
+    await logActivities(db, [
+      ...roles.map((row) => ({
+        ...seeded,
+        module: 'ROLES' as const,
+        entity: { id: row.id, code: row.code, label: row.name },
+        changes: diffActivity(ROLE_ACTIVITY_CONFIG, null, row)
+      })),
+      ...users.map((row) => ({
+        ...seeded,
+        module: 'USERS' as const,
+        entity: { id: row.id, code: row.code, label: row.name },
+        changes: diffActivity(USER_ACTIVITY_CONFIG, null, row)
+      })),
+      ...projectCategories.map((row) => ({
+        ...seeded,
+        module: 'PROJECT_CATEGORIES' as const,
+        dbCode: row.dbCode,
+        entity: { id: row.id, code: row.code, label: row.name },
+        changes: diffActivity(PROJECT_CATEGORY_ACTIVITY_CONFIG, null, row)
+      })),
+      ...sites.map((row) => ({
+        ...seeded,
+        module: 'SITES' as const,
+        dbCode: row.dbCode,
+        entity: { id: row.id, code: row.code, label: row.name },
+        changes: diffActivity(SITE_ACTIVITY_CONFIG, null, row)
+      })),
+      ...processZones.map((row) => ({
+        ...seeded,
+        module: 'PROCESS_ZONES' as const,
+        dbCode: row.dbCode,
+        entity: { id: row.id, code: row.code, label: row.name },
+        changes: diffActivity(PROCESS_ZONE_ACTIVITY_CONFIG, null, row)
+      }))
+    ])
 
     logger.info('Database seeded successfully!')
   } catch (err: any) {

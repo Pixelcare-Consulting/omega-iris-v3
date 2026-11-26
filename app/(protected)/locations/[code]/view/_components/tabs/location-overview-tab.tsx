@@ -9,8 +9,10 @@ import { Separator } from '@/components/ui/separator'
 import ReadOnlyField from '@/components/read-only-field'
 import Copy from '@/components/copy'
 import RecordMetaData from '@/components/record-meta-data'
+import RelationLink from '@/components/relation-link'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { LOCATION_TYPE_LABELS } from '@/constants/location'
+import { toCodeName } from '@/lib/utils'
 import { QRCodeSVG } from 'qrcode.react'
 
 type LocationOverviewTabProps = { location: LocationWithRelations }
@@ -58,11 +60,21 @@ export default function LocationOverviewTab({ location }: LocationOverviewTabPro
           </Column>
 
           <Column md={6} lg={3}>
-            <ReadOnlyField title='Site' value={`${location.siteCode} - ${location.site.name}`} />
+            <ReadOnlyField
+              title='Site'
+              value={<RelationLink href={`/sites/${encodeURIComponent(location.siteCode)}/view`}>{toCodeName(location.site)}</RelationLink>}
+            />
           </Column>
 
           <Column md={6} lg={3}>
-            <ReadOnlyField title='Process Zone' value={`${location.processZoneCode} - ${location.processZone.name}`} />
+            <ReadOnlyField
+              title='Process Zone'
+              value={
+                <RelationLink href={`/process-zones/${encodeURIComponent(location.processZoneCode)}/view`}>
+                  {toCodeName(location.processZone)}
+                </RelationLink>
+              }
+            />
           </Column>
 
           <Column md={4} lg={2}>

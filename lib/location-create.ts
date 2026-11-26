@@ -17,7 +17,7 @@ export async function createLocationRows(
   tx: Prisma.TransactionClient,
   { dbCode, userCode, rows }: { dbCode: string; userCode: number | null; rows: LocationCreateRow[] }
 ) {
-  if (rows.length === 0) return { createdCount: 0, skippedCodes: [] as string[] }
+  if (rows.length === 0) return { createdCount: 0, createdCodes: [] as string[], skippedCodes: [] as string[] }
 
   //* deleted rows count too, the unique key includes them
   const existing = await tx.location.findMany({ where: { dbCode, code: { in: rows.map((row) => row.code) } }, select: { code: true } })
@@ -38,5 +38,6 @@ export async function createLocationRows(
     skipDuplicates: true
   })
 
-  return { createdCount: count, skippedCodes: [...existingCodes] }
+  //* the codes this call tried to add, the activity log reads them back
+  return { createdCount: count, createdCodes: newRows.map((row) => row.code), skippedCodes: [...existingCodes] }
 }

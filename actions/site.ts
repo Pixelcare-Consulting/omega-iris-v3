@@ -14,6 +14,8 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListMessage } from '@/lib/duplicate'
 import { DuplicateFields } from '@/types/common'
 import { FilterOption } from '@/types/data-table'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { SITE_ACTIVITY_CONFIG } from '@/lib/activity-configs/site'
 
 export async function getSites(dbCode: string | null) {
   if (!dbCode) return []
@@ -73,7 +75,15 @@ export async function getDataTableSitesSvr(dbCode: string, params: DataTablePara
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
       stringFields: ['code', 'name', 'description'],
-      booleanFields: [{ field: 'isActive' }]
+      booleanFields: [
+        { field: 'isEnableInbound' },
+        { field: 'isEnableOutbound' },
+        { field: 'isEnableMovement' },
+        { field: 'isEnableCycleCount' },
+        { field: 'isEnableQcTesting' },
+        { field: 'isEnableRma' },
+        { field: 'isActive' }
+      ]
     })
 
     Object.assign(where, filter)
@@ -84,7 +94,15 @@ export async function getDataTableSitesSvr(dbCode: string, params: DataTablePara
     const currentFilters = where.AND as Prisma.SiteWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      booleanFields: [{ field: 'isActive' }],
+      booleanFields: [
+        { field: 'isEnableInbound' },
+        { field: 'isEnableOutbound' },
+        { field: 'isEnableMovement' },
+        { field: 'isEnableCycleCount' },
+        { field: 'isEnableQcTesting' },
+        { field: 'isEnableRma' },
+        { field: 'isActive' }
+      ],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }]
     })
 
@@ -111,7 +129,10 @@ export const getDataTableSitesSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableSitesSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.SITES)) return { data: [], rowCount: 0 }
+    return getDataTableSitesSvr(ctx.dbCode, parsedInput)
+  })
 
 export const upsertSite = action
   .use(authenticationMiddleware)
@@ -158,13 +179,21 @@ export const upsertSite = action
 
         if (!existing) return { status: 404, error: true, message: 'Site not found!', action: actionTag }
 
-        //! the table hides these for system rows, this is the check behind it
-        if (existing.isSystem) {
-          return { status: 403, error: true, message: 'System generated site cannot be edited!', action: actionTag }
-        }
-
         //! code is never written here, even if the client sent one
-        const site = await db.site.update({ where: { id }, data: { ...data, updatedBy: userCode } })
+        const site = await db.$transaction(async (tx) => {
+          const result = await tx.site.update({ where: { id }, data: { ...data, updatedBy: userCode } })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'SITES',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.code, label: result.name },
+            changes: diffActivity(SITE_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
+        })
 
         return {
           status: 200,
@@ -176,8 +205,19 @@ export const upsertSite = action
       }
 
       //* create site
-      const site = await db.site.create({
-        data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode }
+      const site = await db.$transaction(async (tx) => {
+        const result = await tx.site.create({ data: { ...data, code, dbCode, createdBy: userCode, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'SITES',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.code, label: result.name },
+          changes: diffActivity(SITE_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
       })
 
       return { status: 200, error: false, message: 'Site created successfully!', action: actionTag, data: { site } }
@@ -221,7 +261,16 @@ export const deleteSite = action
         return { status: 409, error: true, message: 'Site is in use by locations!', action: actionTag }
       }
 
-      await db.site.update({ where: { id: site.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.site.update({ where: { id: site.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'SITES',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: site.id, code: site.code, label: site.name }
+        })
+      })
 
       return { status: 200, error: false, message: 'Site deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -248,9 +297,15 @@ export const restoreSite = action
 
       if (!site) return { status: 404, error: true, message: 'Site not found!', action: actionTag }
 
-      await db.site.update({
-        where: { id: site.id },
-        data: { deletedAt: null, deletedBy: null, updatedBy: userCode }
+      await db.$transaction(async (tx) => {
+        await tx.site.update({ where: { id: site.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'SITES',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: site.id, code: site.code, label: site.name }
+        })
       })
 
       return { status: 200, error: false, message: 'Site restored successfully!', action: actionTag }

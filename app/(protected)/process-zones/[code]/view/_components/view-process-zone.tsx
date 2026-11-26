@@ -14,12 +14,13 @@ import ProcessZoneOverviewTab from './tabs/process-zone-overview-tab'
 import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
 type ViewProcessZoneProps = { processZone: ProcessZone }
 
 export default function ViewProcessZone({ processZone }: ViewProcessZoneProps) {
-  const TABS_TITLE = ['Overview'] as const
+  const TABS_TITLE = ['Overview', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -53,13 +54,11 @@ export default function ViewProcessZone({ processZone }: ViewProcessZoneProps) {
                 </DropdownMenuItem>
               </CanView>
 
-              {!processZone.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.PROCESS_ZONES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/process-zones/${processZone.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.PROCESS_ZONES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/process-zones/${processZone.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -82,6 +81,10 @@ export default function ViewProcessZone({ processZone }: ViewProcessZoneProps) {
 
         <TabsContent value='0' className='min-h-0 flex-1'>
           <ProcessZoneOverviewTab processZone={processZone} />
+        </TabsContent>
+
+        <TabsContent value='1' className='min-h-0 flex-1'>
+          <ActivityTimeline module='PROCESS_ZONES' entityId={processZone.id} />
         </TabsContent>
       </Tabs>
     </div>

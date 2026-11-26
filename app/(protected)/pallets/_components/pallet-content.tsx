@@ -35,6 +35,7 @@ import AlertModal from '@/components/alert-modal'
 import { useConfirmAction } from '@/hooks/use-confirm-action'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import CanView from '@/components/rbac/can-view'
+import RelationLink from '@/components/relation-link'
 import { formatDate } from '@/lib/utils'
 import { exportToExcel } from '@/lib/xlsx'
 import DataTableColumnFilterWrapper from '@/components/data-table/data-table-column-filter-wrapper'
@@ -134,33 +135,49 @@ export default function PalletContent({ categoryOptions, projectOptions, locatio
       accessorKey: 'projectCategoryCode',
       filterFn: multiSelectFilterFn,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Category' />,
-      cell: ({ row: { original: data } }) => (
-        <DataTableTextCell value={data.projectCategoryCode} highlight={table.getState().globalFilter} />
-      ),
+      cell: ({ row: { original: data } }) => {
+        if (!data.projectCategoryCode) return <DataTableTextCell value={null} />
+
+        return (
+          <RelationLink href={`/project-categories/${encodeURIComponent(data.projectCategoryCode)}/view`}>
+            <DataTableTextCell value={data.projectCategoryCode} highlight={table.getState().globalFilter} />
+          </RelationLink>
+        )
+      },
       meta: {
         title: 'Category',
         options: categoryOptions,
-        exportValue: (row) => (row.projectCategory ? `${row.projectCategory.code} - ${row.projectCategory.name}` : '')
+        exportValue: (row) => (row.projectCategory ? `${row.projectCategory.code} (${row.projectCategory.name})` : '')
       }
     },
     {
       accessorKey: 'customerProjectCode',
       filterFn: multiSelectFilterFn,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Project' />,
-      cell: ({ row: { original: data } }) => (
-        <DataTableTextCell value={data.customerProjectCode} highlight={table.getState().globalFilter} />
-      ),
+      cell: ({ row: { original: data } }) => {
+        if (!data.customerProjectCode) return <DataTableTextCell value={null} />
+
+        return (
+          <RelationLink href={`/customer-projects/${encodeURIComponent(data.customerProjectCode)}/view`}>
+            <DataTableTextCell value={data.customerProjectCode} highlight={table.getState().globalFilter} />
+          </RelationLink>
+        )
+      },
       meta: {
         title: 'Project',
         options: projectOptions,
-        exportValue: (row) => (row.customerProject ? `${row.customerProject.code} - ${row.customerProject.name}` : '')
+        exportValue: (row) => (row.customerProject ? `${row.customerProject.code} (${row.customerProject.name})` : '')
       }
     },
     {
       accessorKey: 'locationCode',
       filterFn: multiSelectFilterFn,
       header: ({ column }) => <DataTableColumnHeader column={column} title='Location' />,
-      cell: ({ row: { original: data } }) => <DataTableTextCell value={data.locationCode} highlight={table.getState().globalFilter} />,
+      cell: ({ row: { original: data } }) => (
+        <RelationLink href={`/locations/${encodeURIComponent(data.locationCode)}/view`}>
+          <DataTableTextCell value={data.locationCode} highlight={table.getState().globalFilter} />
+        </RelationLink>
+      ),
       meta: { title: 'Location', options: locationOptions, exportValue: (row) => row.locationCode }
     },
     {

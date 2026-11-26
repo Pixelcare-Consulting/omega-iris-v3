@@ -16,6 +16,9 @@ import { reserveSequence, previewSequenceValue } from '@/lib/sequence'
 import { PALLET_SEQUENCE } from '@/lib/pallet-sequence'
 import { formatPalletCode, getPalletPrefixParts } from '@/lib/pallet'
 import { FilterOption } from '@/types/data-table'
+import { createId } from '@paralleldrive/cuid2'
+import { diffActivity, logActivities, logActivity } from '@/lib/activity-log'
+import { PALLET_ACTIVITY_CONFIG } from '@/lib/activity-configs/pallet'
 
 const COMMON_PALLET_INCLUDE = { projectCategory: true, customerProject: true, location: true } satisfies Prisma.PalletInclude
 
@@ -140,7 +143,11 @@ export const getDataTablePalletsSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTablePalletsSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    //* view only, label select all goes through isExport and must not need export
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.PALLETS)) return { data: [], rowCount: 0 }
+    return getDataTablePalletsSvr(ctx.dbCode, parsedInput)
+  })
 
 //* a message when a reference is unusable, null when all are fine
 async function validatePalletRefs(dbCode: string, refs: PalletRefs[]) {
@@ -223,7 +230,20 @@ export const upsertPallet = action
         }
 
         //! edit writes status only, the rest is locked after save
-        const pallet = await db.pallet.update({ where: { id }, data: { status, updatedBy: userCode } })
+        const pallet = await db.$transaction(async (tx) => {
+          const result = await tx.pallet.update({ where: { id }, data: { status, updatedBy: userCode } })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'PALLETS',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.code },
+            changes: diffActivity(PALLET_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
+        })
 
         return { status: 200, error: false, message: 'Pallet updated successfully!', action: actionTag, data: { pallet } }
       }
@@ -236,7 +256,7 @@ export const upsertPallet = action
       const pallet = await db.$transaction(async (tx) => {
         const { scope, first } = await reserveSequence(tx, PALLET_SEQUENCE, { prefixParts: getPalletPrefixParts(project) }, 1)
 
-        return tx.pallet.create({
+        const result = await tx.pallet.create({
           data: {
             dbCode,
             code: formatPalletCode(scope, first),
@@ -247,6 +267,17 @@ export const upsertPallet = action
             updatedBy: userCode
           }
         })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PALLETS',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.code },
+          changes: diffActivity(PALLET_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
       })
 
       return { status: 200, error: false, message: `Pallet ${pallet.code} created successfully!`, action: actionTag, data: { pallet } }
@@ -305,6 +336,31 @@ export const generatePallets = action
 
           await tx.pallet.createMany({ data: rows })
 
+          const created = await tx.pallet.findMany({ where: { dbCode, code: { in: rows.map((row) => row.code) } } })
+          const batchId = createId()
+
+          //* one row per pallet, then one summary for the run
+          await logActivities(tx, [
+            ...created.map((pallet) => ({
+              actor: ctx.actor,
+              module: 'PALLETS' as const,
+              action: 'CREATE' as const,
+              dbCode,
+              batchId,
+              summary: 'Created by bulk generate',
+              entity: { id: pallet.id, code: pallet.code },
+              changes: diffActivity(PALLET_ACTIVITY_CONFIG, null, pallet)
+            })),
+            {
+              actor: ctx.actor,
+              module: 'PALLETS' as const,
+              action: 'BULK_CREATE' as const,
+              dbCode,
+              batchId,
+              changes: { fields: [], meta: { created: created.length } }
+            }
+          ])
+
           return rows.map((row) => row.code)
         },
         { timeout: 30000 }
@@ -361,7 +417,16 @@ export const deletePallet = action
         return { status: 409, error: true, message: 'Pallet is in use by containers!', action: actionTag }
       }
 
-      await db.pallet.update({ where: { id: pallet.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.pallet.update({ where: { id: pallet.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PALLETS',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: pallet.id, code: pallet.code }
+        })
+      })
 
       return { status: 200, error: false, message: 'Pallet deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -404,7 +469,16 @@ export const restorePallet = action
         return { status: 409, error: true, message: 'Restore the customer project first!', action: actionTag }
       }
 
-      await db.pallet.update({ where: { id: pallet.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.pallet.update({ where: { id: pallet.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'PALLETS',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: pallet.id, code: pallet.code }
+        })
+      })
 
       return { status: 200, error: false, message: 'Pallet restored successfully!', action: actionTag }
     } catch (err: any) {

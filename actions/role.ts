@@ -11,6 +11,10 @@ import { paramsSchema } from '@/schema/common'
 import { logger } from '@/lib/logger'
 import { roleFormSchema } from '@/schema/role'
 import { FilterOption } from '@/types/data-table'
+import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { ROLE_ACTIVITY_CONFIG, ROLE_ACTIVITY_INCLUDE } from '@/lib/activity-configs/role'
 
 const ROLE_DETAIL_INCLUDE = {
   rolePermissions: true,
@@ -104,15 +108,25 @@ export async function getDataTableRolesSvr(params: DataTableParams) {
 export const getDataTableRolesSvrClient = action
   .use(authenticationMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ parsedInput }) => getDataTableRolesSvr(parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.ROLES)) return { data: [], rowCount: 0 }
+    return getDataTableRolesSvr(parsedInput)
+  })
 
 export const upsertRole = action
   .use(authenticationMiddleware)
   .inputSchema(roleFormSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { code, permissions, roles, sapDatabases, ...data } = parsedInput
-    const { userCode } = ctx
+    const { userCode, ability } = ctx
     const actionTag = 'UPSERT_ROLE'
+    const isCreate = !code || code === -1
+
+    const requiredAction = isCreate ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT
+
+    if (!ability?.can(requiredAction, PERMISSIONS_CODES.ROLES)) {
+      return { status: 403, error: true, message: 'You are not allowed to do this!', action: actionTag }
+    }
     const uniqueSapDatabases = [...new Set(sapDatabases)] //* a repeated code would break the composite key
 
     try {
@@ -123,6 +137,13 @@ export const upsertRole = action
 
       //* update role
       if (code && code !== -1) {
+        const before = await db.role.findUnique({ where: { code }, include: ROLE_ACTIVITY_INCLUDE })
+
+        //! the table hides edit for the super user role, this is the check behind it
+        if (before?.isSystem && before.key === SUPER_USER_ROLE_KEY) {
+          return { error: true, status: 403, message: 'Super user role cannot be edited!', action: actionTag }
+        }
+
         const updatedRole = await db.$transaction(async (tx) => {
           //* update role
           const role = await tx.role.update({ where: { code }, data: { ...data, updatedBy: userCode } })
@@ -144,6 +165,16 @@ export const upsertRole = action
             data: uniqueSapDatabases.map((dbCode) => ({ roleCode: role.code, sapDatabaseCode: dbCode }))
           })
 
+          const after = await tx.role.findUnique({ where: { code }, include: ROLE_ACTIVITY_INCLUDE })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'ROLES',
+            action: 'UPDATE',
+            entity: { id: role.id, code: role.code, label: role.name },
+            changes: diffActivity(ROLE_ACTIVITY_CONFIG, before, after)
+          })
+
           return role
         })
 
@@ -156,22 +187,35 @@ export const upsertRole = action
       }
 
       //* create role
-      const newRole = await db.role.create({
-        data: {
-          ...data,
-          createdBy: userCode,
-          updatedBy: userCode,
-          rolePermissions: {
-            createMany: {
-              data: permissions.filter((p) => p.actions.length > 0).map((p) => ({ permissionCode: p.code, actions: p.actions }))
+      const newRole = await db.$transaction(async (tx) => {
+        const role = await tx.role.create({
+          data: {
+            ...data,
+            createdBy: userCode,
+            updatedBy: userCode,
+            rolePermissions: {
+              createMany: {
+                data: permissions.filter((p) => p.actions.length > 0).map((p) => ({ permissionCode: p.code, actions: p.actions }))
+              }
+            },
+            roleSapDatabases: {
+              createMany: {
+                data: uniqueSapDatabases.map((dbCode) => ({ sapDatabaseCode: dbCode }))
+              }
             }
           },
-          roleSapDatabases: {
-            createMany: {
-              data: uniqueSapDatabases.map((dbCode) => ({ sapDatabaseCode: dbCode }))
-            }
-          }
-        }
+          include: ROLE_ACTIVITY_INCLUDE
+        })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ROLES',
+          action: 'CREATE',
+          entity: { id: role.id, code: role.code, label: role.name },
+          changes: diffActivity(ROLE_ACTIVITY_CONFIG, null, role)
+        })
+
+        return role
       })
 
       return { status: 200, message: 'Role created successfully!', action: actionTag, data: { role: newRole } }
@@ -193,6 +237,10 @@ export const deleteRole = action
   .action(async ({ ctx, parsedInput }) => {
     const actionTag = 'DELETE_ROLE'
 
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.DELETE, PERMISSIONS_CODES.ROLES)) {
+      return { status: 403, error: true, message: 'You are not allowed to do this!', action: actionTag }
+    }
+
     try {
       const role = await db.role.findUnique({ where: { code: parsedInput.code } })
 
@@ -203,7 +251,15 @@ export const deleteRole = action
         return { error: true, status: 403, message: 'System generated role cannot be deleted!', action: actionTag }
       }
 
-      await db.role.update({ where: { code: parsedInput.code }, data: { deletedAt: new Date(), deletedBy: ctx.userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.role.update({ where: { code: parsedInput.code }, data: { deletedAt: new Date(), deletedBy: ctx.userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ROLES',
+          action: 'DELETE',
+          entity: { id: role.id, code: role.code, label: role.name }
+        })
+      })
 
       return { status: 200, message: 'Role deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -224,12 +280,24 @@ export const restoreRole = action
   .action(async ({ ctx, parsedInput }) => {
     const actionTag = 'RESTORE_ROLE'
 
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.RESTORE, PERMISSIONS_CODES.ROLES)) {
+      return { status: 403, error: true, message: 'You are not allowed to do this!', action: actionTag }
+    }
+
     try {
       const role = await db.role.findUnique({ where: { code: parsedInput.code } })
 
       if (!role) return { error: true, status: 404, message: 'Role not found!', action: actionTag }
 
-      await db.role.update({ where: { code: parsedInput.code }, data: { deletedAt: null, deletedBy: null, updatedBy: ctx.userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.role.update({ where: { code: parsedInput.code }, data: { deletedAt: null, deletedBy: null, updatedBy: ctx.userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ROLES',
+          action: 'RESTORE',
+          entity: { id: role.id, code: role.code, label: role.name }
+        })
+      })
 
       return { status: 200, message: 'Role restored successfully!', action: actionTag }
     } catch (err: any) {

@@ -15,6 +15,10 @@ import { isUniqueConstraintError } from '@/lib/duplicate'
 import { reserveSequence, previewSequenceValue } from '@/lib/sequence'
 import { CONTAINER_SEQUENCE } from '@/lib/container-sequence'
 import { formatContainerCode, getContainerPrefixParts } from '@/lib/container'
+import { createId } from '@paralleldrive/cuid2'
+import { diffActivity, logActivities, logActivity } from '@/lib/activity-log'
+import { CONTAINER_ACTIVITY_CONFIG } from '@/lib/activity-configs/container'
+import { FilterOption } from '@/types/data-table'
 
 const COMMON_CONTAINER_INCLUDE = {
   projectCategory: true,
@@ -41,6 +45,20 @@ export async function getContainerByCode(dbCode: string | null, code?: string | 
   } catch (err: any) {
     logger.error(err, '[GET_CONTAINER_BY_CODE_ERROR]:')
     return null
+  }
+}
+
+//* list filter only, every live container so old rows can be found
+export async function getContainerOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const containers = await db.container.findMany({ where: { dbCode, deletedAt: null }, select: { code: true }, orderBy: { code: 'asc' } })
+
+    return containers.map((container) => ({ label: container.code, value: container.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_CONTAINER_OPTIONS_ERROR]:')
+    return []
   }
 }
 
@@ -112,7 +130,11 @@ export const getDataTableContainersSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableContainersSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    //* view only, label select all goes through isExport and must not need export
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.CONTAINERS)) return { data: [], rowCount: 0 }
+    return getDataTableContainersSvr(ctx.dbCode, parsedInput)
+  })
 
 //* every container rule in one place, gives an error or each ref's location
 //* the location decides, a pallet is optional and must already sit there
@@ -236,7 +258,20 @@ export const upsertContainer = action
         if (!existing) return { status: 404, error: true, message: 'Container not found!', action: actionTag }
 
         //! edit writes status only, the rest is locked after save
-        const container = await db.container.update({ where: { id }, data: { status, updatedBy: userCode } })
+        const container = await db.$transaction(async (tx) => {
+          const updated = await tx.container.update({ where: { id }, data: { status, updatedBy: userCode } })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'CONTAINERS',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: updated.id, code: updated.code },
+            changes: diffActivity(CONTAINER_ACTIVITY_CONFIG, existing, updated)
+          })
+
+          return updated
+        })
 
         return { status: 200, error: false, message: 'Container updated successfully!', action: actionTag, data: { container } }
       }
@@ -249,7 +284,7 @@ export const upsertContainer = action
       const container = await db.$transaction(async (tx) => {
         const { scope, first } = await reserveSequence(tx, CONTAINER_SEQUENCE, { prefixParts: getContainerPrefixParts(refs) }, 1)
 
-        return tx.container.create({
+        const created = await tx.container.create({
           data: {
             dbCode,
             code: formatContainerCode(scope, first),
@@ -261,6 +296,17 @@ export const upsertContainer = action
             updatedBy: userCode
           }
         })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'CONTAINERS',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: created.id, code: created.code },
+          changes: diffActivity(CONTAINER_ACTIVITY_CONFIG, null, created)
+        })
+
+        return created
       })
 
       return {
@@ -328,6 +374,31 @@ export const generateContainers = action
 
           await tx.container.createMany({ data: rows })
 
+          const created = await tx.container.findMany({ where: { dbCode, code: { in: rows.map((row) => row.code) } } })
+          const batchId = createId()
+
+          //* one row per container, then one summary for the run
+          await logActivities(tx, [
+            ...created.map((container) => ({
+              actor: ctx.actor,
+              module: 'CONTAINERS' as const,
+              action: 'CREATE' as const,
+              dbCode,
+              batchId,
+              summary: 'Created by bulk generate',
+              entity: { id: container.id, code: container.code },
+              changes: diffActivity(CONTAINER_ACTIVITY_CONFIG, null, container)
+            })),
+            {
+              actor: ctx.actor,
+              module: 'CONTAINERS' as const,
+              action: 'BULK_CREATE' as const,
+              dbCode,
+              batchId,
+              changes: { fields: [], meta: { created: created.length } }
+            }
+          ])
+
           return rows.map((row) => row.code)
         },
         { timeout: 30000 }
@@ -377,7 +448,16 @@ export const deleteContainer = action
 
       if (!container) return { status: 404, error: true, message: 'Container not found!', action: actionTag }
 
-      await db.container.update({ where: { id: container.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.container.update({ where: { id: container.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'CONTAINERS',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: container.id, code: container.code }
+        })
+      })
 
       return { status: 200, error: false, message: 'Container deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -423,7 +503,16 @@ export const restoreContainer = action
         return { status: 409, error: true, message: 'Restore the customer project first!', action: actionTag }
       }
 
-      await db.container.update({ where: { id: container.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.container.update({ where: { id: container.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'CONTAINERS',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: container.id, code: container.code }
+        })
+      })
 
       return { status: 200, error: false, message: 'Container restored successfully!', action: actionTag }
     } catch (err: any) {

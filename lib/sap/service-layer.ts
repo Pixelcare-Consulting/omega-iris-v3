@@ -3,7 +3,7 @@ import 'server-only'
 import axios from 'axios'
 
 import { logger } from '@/lib/logger'
-import { REQUEST_TIMEOUT, SAP_DEFAULT_PAGE_SIZE } from '@/constants/sap'
+import { REQUEST_TIMEOUT, SAP_DEFAULT_PAGE_SIZE, SAP_UNREACHABLE_COOLDOWN } from '@/constants/sap'
 import { SapQuery, SapResult } from '@/types/sap'
 import { getSapConfig, getSapHttpsAgent, toCookieHeader, toSapErrorMessage } from './client'
 import { getSapSession, invalidateSapSession } from './session'
@@ -73,7 +73,15 @@ function sendOnce<T>(dbCode: string, req: SapRequest): Promise<Attempt<T>> {
   return enqueue(dbCode, () => sendNow<T>(dbCode, req))
 }
 
+//* when sap stopped answering per database, queued calls skip the 30s wait until then
+const unreachableUntil = new Map<string, number>()
+
 async function sendNow<T>(dbCode: string, req: SapRequest): Promise<Attempt<T>> {
+  if (Date.now() < (unreachableUntil.get(dbCode) ?? 0)) {
+    const message = 'SAP is unreachable right now. Please try again in a moment.'
+    return { result: { ok: false, status: 503, code: 'SAP_UNREACHABLE', message }, isSessionRejected: false }
+  }
+
   const sapSession = await getSapSession(dbCode)
 
   //* login itself failed, another login would fail the same way
@@ -98,6 +106,9 @@ async function sendNow<T>(dbCode: string, req: SapRequest): Promise<Attempt<T>> 
     const sapError = response?.data?.error
 
     logger.error({ dbCode, path, status: response?.status, sapError }, `[SAP_FETCH_ERROR]: ${err?.message}`)
+
+    //* no response at all (socket hang up, reset, timeout) means sap is down, not that the request was wrong
+    if (!response) unreachableUntil.set(dbCode, Date.now() + SAP_UNREACHABLE_COOLDOWN)
 
     const result: SapResult<T> = {
       ok: false,

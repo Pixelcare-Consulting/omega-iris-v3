@@ -11,6 +11,7 @@ import {
   SapItemGroup,
   SapManufacturer,
   SapPaymentTermsType,
+  SapPurchaseOrderLineRow,
   SapSalesPerson,
   SapSeries,
   SapState,
@@ -85,6 +86,9 @@ export const SAP_ENDPOINTS = {
   'items.create': endpoint<SapItem, SapItemBody>({ method: 'POST', path: 'Items' }),
   'items.update': endpoint<undefined, SapItemBody, ItemCodeParams>({ method: 'PATCH', path: (p) => `Items(${sapKey(p.itemCode)})` }),
   'items.delete': endpoint<undefined, undefined, ItemCodeParams>({ method: 'DELETE', path: (p) => `Items(${sapKey(p.itemCode)})` }),
+
+  //* purchase orders, read only, one row per line, paging off so a long po comes back whole
+  'purchaseOrders.lines': endpoint<SapCollection<SapPurchaseOrderLineRow>>({ method: 'GET', path: '$crossjoin(PurchaseOrders,PurchaseOrders/DocumentLines)', headers: NO_PAGING }), // prettier-ignore
 
   //* numbering series
   'series.default': endpoint<SapSeries, SapDocumentTypeParams>({ method: 'POST', path: 'SeriesService_GetDefaultSeries' }),

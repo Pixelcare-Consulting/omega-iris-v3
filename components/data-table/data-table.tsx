@@ -1,5 +1,6 @@
 'use client'
 
+import { Fragment, ReactNode } from 'react'
 import { flexRender, Row, type Table as TanstackTable } from '@tanstack/react-table'
 
 import { DataTablePagination } from './data-table-pagination'
@@ -17,9 +18,17 @@ type DataTableProps<TData> = {
   isServerSide?: boolean
   getRowClassName?: (row: Row<TData>) => string | undefined
   paginationClassName?: string
+  renderSubComponent?: (row: Row<TData>) => ReactNode //* full width row under an expanded row
 }
 
-export function DataTable<TData>({ table, isLoading, isServerSide, getRowClassName, paginationClassName }: DataTableProps<TData>) {
+export function DataTable<TData>({
+  table,
+  isLoading,
+  isServerSide,
+  getRowClassName,
+  paginationClassName,
+  renderSubComponent
+}: DataTableProps<TData>) {
   const isMounted = useIsClient()
 
   if (!isMounted) return null
@@ -66,21 +75,31 @@ export function DataTable<TData>({ table, isLoading, isServerSide, getRowClassNa
           <TableBody>
             {hasRows &&
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} data-state={row.getIsSelected() && 'selected'} className={getRowClassName?.(row)}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      className='has-[[role=checkbox]]:pl-0'
-                      style={{
-                        ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
-                        minWidth: cell.column.columnDef.minSize,
-                        maxWidth: cell.column.columnDef.maxSize
-                      }}
-                    >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
+                <Fragment key={row.id}>
+                  <TableRow data-state={row.getIsSelected() && 'selected'} className={getRowClassName?.(row)}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className='has-[[role=checkbox]]:pl-0'
+                        style={{
+                          ...getCommonPinningStyles({ column: cell.column, withBorder: true }),
+                          minWidth: cell.column.columnDef.minSize,
+                          maxWidth: cell.column.columnDef.maxSize
+                        }}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+
+                  {renderSubComponent && row.getIsExpanded() && (
+                    <TableRow className='hover:bg-transparent'>
+                      <TableCell colSpan={row.getVisibleCells().length} className='bg-muted/40 p-0 whitespace-normal'>
+                        {renderSubComponent(row)}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               ))}
           </TableBody>
         </Table>

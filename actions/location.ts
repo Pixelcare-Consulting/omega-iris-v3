@@ -15,6 +15,9 @@ import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/perm
 import { isUniqueConstraintError, toDuplicateMessage } from '@/lib/duplicate'
 import { buildLocationCode, expandLocationRun } from '@/lib/location'
 import { createLocationRows, LocationCreateRow } from '@/lib/location-create'
+import { createId } from '@paralleldrive/cuid2'
+import { diffActivity, logActivities, logActivity } from '@/lib/activity-log'
+import { LOCATION_ACTIVITY_CONFIG } from '@/lib/activity-configs/location'
 
 const COMMON_LOCATION_INCLUDE = { site: true, processZone: true } satisfies Prisma.LocationInclude
 
@@ -164,7 +167,11 @@ export const getDataTableLocationsSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableLocationsSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    //* view only, label select all goes through isExport and must not need export
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.LOCATIONS)) return { data: [], rowCount: 0 }
+    return getDataTableLocationsSvr(ctx.dbCode, parsedInput)
+  })
 
 //* deleted rows included, they still hold the code
 export const getExistingLocationCodesClient = action
@@ -218,9 +225,22 @@ export const upsertLocation = action
         }
 
         //! code parts are locked, only these change
-        const location = await db.location.update({
-          where: { id },
-          data: { name: name ?? existing.code, type, isActive, isPalletAllowed, updatedBy: userCode }
+        const location = await db.$transaction(async (tx) => {
+          const result = await tx.location.update({
+            where: { id },
+            data: { name: name ?? existing.code, type, isActive, isPalletAllowed, updatedBy: userCode }
+          })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'LOCATIONS',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.code, label: result.name },
+            changes: diffActivity(LOCATION_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
         })
 
         return { status: 200, error: false, message: 'Location updated successfully!', action: actionTag, data: { location } }
@@ -239,17 +259,32 @@ export const upsertLocation = action
       const code = buildLocationCode(parts)
       const row: LocationCreateRow = { ...parts, code, name: name ?? code, type, isActive, isPalletAllowed }
 
-      const { createdCount } = await db.$transaction((tx) => createLocationRows(tx, { dbCode, userCode, rows: [row] }))
+      const location = await db.$transaction(async (tx) => {
+        const { createdCount } = await createLocationRows(tx, { dbCode, userCode, rows: [row] })
 
-      //* zero means it existed, or a save raced past the check
-      if (createdCount === 0) {
+        //* zero means it existed, or a save raced past the check
+        if (createdCount === 0) return null
+
+        const result = await tx.location.findFirstOrThrow({ where: { dbCode, code } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'LOCATIONS',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.code, label: result.name },
+          changes: diffActivity(LOCATION_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
+      })
+
+      if (!location) {
         const duplicate = await db.location.findFirst({ where: { dbCode, code }, select: { deletedAt: true } })
         const message = toDuplicateMessage('Code', duplicate?.deletedAt ?? null)
 
         return { status: 401, error: true, message, action: actionTag, paths: [{ field: 'code', message }] }
       }
-
-      const location = await db.location.findFirstOrThrow({ where: { dbCode, code } })
 
       return { status: 200, error: false, message: 'Location created successfully!', action: actionTag, data: { location } }
     } catch (err: any) {
@@ -311,7 +346,38 @@ export const generateLocations = action
 
       if (rows.length === 0) return { status: 400, error: true, message: 'No locations to create!', action: actionTag }
 
-      const { createdCount } = await db.$transaction((tx) => createLocationRows(tx, { dbCode, userCode, rows }), { timeout: 30000 })
+      const { createdCount } = await db.$transaction(
+        async (tx) => {
+          const result = await createLocationRows(tx, { dbCode, userCode, rows })
+          const created = await tx.location.findMany({ where: { dbCode, code: { in: result.createdCodes }, deletedAt: null } })
+          const batchId = createId()
+
+          //* one row per location, then one summary for the run
+          await logActivities(tx, [
+            ...created.map((location) => ({
+              actor: ctx.actor,
+              module: 'LOCATIONS' as const,
+              action: 'CREATE' as const,
+              dbCode,
+              batchId,
+              summary: 'Created by bulk generate',
+              entity: { id: location.id, code: location.code, label: location.name },
+              changes: diffActivity(LOCATION_ACTIVITY_CONFIG, null, location)
+            })),
+            {
+              actor: ctx.actor,
+              module: 'LOCATIONS' as const,
+              action: 'BULK_CREATE' as const,
+              dbCode,
+              batchId,
+              changes: { fields: [], meta: { created: result.createdCount, skipped: expanded.length - result.createdCount } }
+            }
+          ])
+
+          return result
+        },
+        { timeout: 30000 }
+      )
 
       const skippedCount = expanded.length - createdCount
 
@@ -359,7 +425,24 @@ export const deleteLocation = action
         return { status: 409, error: true, message: 'Location is in use by containers!', action: actionTag }
       }
 
-      await db.location.update({ where: { id: location.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      //* any live unit here blocks it
+      const unitCount = await db.packagingUnit.count({ where: { dbCode, locationCode: location.code, deletedAt: null } })
+
+      if (unitCount > 0) {
+        return { status: 409, error: true, message: 'Location is in use by unique IDs!', action: actionTag }
+      }
+
+      await db.$transaction(async (tx) => {
+        await tx.location.update({ where: { id: location.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'LOCATIONS',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: location.id, code: location.code, label: location.name }
+        })
+      })
 
       return { status: 200, error: false, message: 'Location deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -392,7 +475,17 @@ export const restoreLocation = action
         return { status: 409, error: true, message: 'Restore the process zone first!', action: actionTag }
       }
 
-      await db.location.update({ where: { id: location.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.location.update({ where: { id: location.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'LOCATIONS',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: location.id, code: location.code, label: location.name }
+        })
+      })
 
       return { status: 200, error: false, message: 'Location restored successfully!', action: actionTag }
     } catch (err: any) {

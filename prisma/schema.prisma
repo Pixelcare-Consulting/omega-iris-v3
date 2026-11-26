@@ -24,6 +24,8 @@ model User {
   isDefaultPasswordChanged Boolean   @default(false)
   isLocked                 Boolean   @default(false)
   isSystem                 Boolean   @default(false)
+  isInternal               Boolean   @default(false) //* omega personnel
+  employeeId               String?   @unique
   failedLoginAttempts      Int       @default(0) //* failed login attempts will be reset to 0 when user is unlocked and successfully signin
   lastSignin               DateTime?
 
@@ -35,9 +37,11 @@ model User {
   deletedBy Int?
 
   role                    Role             @relation(fields: [roleCode], references: [code])
-  sessions                AuthSession[]
+  authSessions            AuthSession[]
   accounts                Account[]
   uploadedFileAttachments FileAttachment[] @relation(name: "UploadedFileAttachments")
+  sessions                Session[]
+  receivedPackagingUnits  PackagingUnit[]
 
   @@index([roleCode])
   @@index([deletedAt])
@@ -203,13 +207,19 @@ model RoleSapDatabase {
 }
 
 model Site {
-  id          String  @id @default(cuid())
-  dbCode      String
-  code        String
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-  isSystem    Boolean @default(false)
+  id                 String  @id @default(cuid())
+  dbCode             String
+  code               String
+  name               String
+  description        String?
+  isEnableInbound    Boolean @default(false)
+  isEnableOutbound   Boolean @default(false)
+  isEnableMovement   Boolean @default(false)
+  isEnableCycleCount Boolean @default(false)
+  isEnableQcTesting  Boolean @default(false) //? may change later
+  isEnableRma        Boolean @default(false) //? may change later
+  isActive           Boolean @default(true)
+  isSystem           Boolean @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
@@ -219,6 +229,7 @@ model Site {
   deletedBy Int?
 
   locations Location[]
+  sessions  Session[]
 
   @@unique([dbCode, code])
   @@unique([dbCode, name])
@@ -279,10 +290,12 @@ model Location {
   updatedBy Int?
   deletedBy Int?
 
-  site        Site        @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
-  processZone ProcessZone @relation(fields: [dbCode, processZoneCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
-  pallets     Pallet[]
-  containers  Container[]
+  site           Site            @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  processZone    ProcessZone     @relation(fields: [dbCode, processZoneCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pallets        Pallet[]
+  containers     Container[]
+  inbounds       Inbound[]
+  packagingUnits PackagingUnit[]
 
   @@unique([dbCode, code])
   @@index([dbCode])
@@ -324,6 +337,7 @@ model Pallet {
   customerProject CustomerProject? @relation(fields: [dbCode, customerProjectCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
   location        Location         @relation(fields: [dbCode, locationCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
   containers      Container[]
+  packagingUnits  PackagingUnit[]
 
   @@unique([dbCode, code])
   @@index([dbCode])
@@ -368,6 +382,7 @@ model Container {
   customerProject CustomerProject? @relation(fields: [dbCode, customerProjectCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
   location        Location         @relation(fields: [dbCode, locationCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
   pallet          Pallet?          @relation(fields: [dbCode, palletCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  packagingUnits  PackagingUnit[]
 
   @@unique([dbCode, code])
   @@index([dbCode])
@@ -378,14 +393,244 @@ model Container {
   @@index([deletedAt])
 }
 
-model ProjectCategory {
-  id          String  @id @default(cuid())
+enum SessionType {
+  INBOUND
+  OUTBOUND
+  MOVEMENT
+  CYCLE_COUNT
+  QC_TESTING
+  RMA
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+//* header only, each process adds its own line table later
+//* one in progress or paused session per user, the start action checks it
+model Session {
+  id           String        @id @default(cuid())
+  dbCode       String
+  code         String
+  type         SessionType
+  status       SessionStatus @default(IN_PROGRESS)
+  userCode     Int
+  employeeId   String? //* copied from the user at start
+  siteCode     String
+  startedAt    DateTime      @default(now())
+  endedAt      DateTime?
+  cancelReason String?
+  notes        String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  user     User           @relation(fields: [userCode], references: [code], onUpdate: Cascade, onDelete: Restrict)
+  site     Site           @relation(fields: [dbCode, siteCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pauses   SessionPause[]
+  inbounds Inbound[]
+
+  @@unique([dbCode, code])
+  @@index([userCode])
+  @@index([dbCode, siteCode])
+  @@index([status])
+  @@index([deletedAt])
+}
+
+model SessionPause {
+  id          String    @id @default(cuid())
   dbCode      String
-  code        String
-  name        String
-  description String?
-  isActive    Boolean @default(true)
-  isSystem    Boolean @default(false)
+  sessionCode String
+  pausedAt    DateTime  @default(now())
+  resumedAt   DateTime?
+
+  session Session @relation(fields: [dbCode, sessionCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+
+  @@index([dbCode, sessionCode])
+}
+
+enum InboundStatus {
+  DRAFT
+  SUBMITTED
+  CANCELLED
+}
+
+//* code is INB-<yyyy>-<000001>, one inbound transaction inside a session
+//* every field but the code is optional while it is a draft, submit checks them
+model Inbound {
+  id                  String        @id @default(cuid())
+  dbCode              String
+  code                String
+  sessionCode         String
+  status              InboundStatus @default(DRAFT)
+  locationCode        String?
+  projectCategoryCode String? //* copied from the project, like Pallet
+  customerProjectCode String?
+  poNum               String? //* sap DocNum, the number sap users see
+  isPartialReceived   Boolean       @default(false)
+  notes               String?
+  submittedAt         DateTime?
+  cancelReason        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  createdBy Int?
+  updatedBy Int?
+
+  session         Session          @relation(fields: [dbCode, sessionCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  location        Location?        @relation(fields: [dbCode, locationCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  projectCategory ProjectCategory? @relation(fields: [dbCode, projectCategoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  customerProject CustomerProject? @relation(fields: [dbCode, customerProjectCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  items           InboundItem[]
+
+  @@unique([dbCode, code])
+  @@index([dbCode, sessionCode])
+  @@index([status])
+}
+
+//* one package as received, the fixed facts, a packaging unit points back here
+//* no deletedAt, a draft line is deleted for good
+model InboundItem {
+  id                String   @id @default(cuid())
+  dbCode            String
+  inboundCode       String
+  lineNum           Int //* a label, gaps stay after a delete
+  owner             String?
+  mpn               String //* ItemMaster.ItemCode
+  partNumber        String?
+  commodityCode     String?
+  dateCode          String?
+  countryOfOrigin   String?
+  lotCode           String?
+  packagingTypeCode String?
+  spq               String?
+  cost              Decimal? @db.Decimal(18, 6) //* from the po line with the same p/n
+  totalStock        Decimal  @db.Decimal(18, 6)
+  isMandatoryQc     Boolean  @default(false)
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  createdBy Int?
+  updatedBy Int?
+
+  inbound       Inbound        @relation(fields: [dbCode, inboundCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Cascade)
+  itemMaster    ItemMaster     @relation(fields: [dbCode, mpn], references: [dbCode, ItemCode], onUpdate: Cascade, onDelete: Restrict)
+  commodity     Commodity?     @relation(fields: [dbCode, commodityCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  packagingType PackagingType? @relation(fields: [dbCode, packagingTypeCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+
+  packagingUnits PackagingUnit[]
+
+  @@unique([dbCode, inboundCode, lineNum])
+  @@index([dbCode, mpn])
+}
+
+//* code is <category>-<project>-<yymmdd>-U<number>, a split child adds -S<number>
+//* the received facts live on the inbound item, this holds only what changes
+model PackagingUnit {
+  id                  String    @id @default(cuid())
+  dbCode              String
+  code                String
+  inboundItemId       String
+  parentCode          String? //* set when split from another unit
+  projectCategoryCode String //* copied from the inbound, part of the code
+  customerProjectCode String //* copied from the inbound, part of the code
+  locationCode        String
+  palletCode          String?
+  containerCode       String?
+  quantity            Decimal   @db.Decimal(18, 6)
+  receivedAt          DateTime //* the inbound's submit time, a split child copies it
+  receivedBy          Int
+  lastCycleCount      DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime? //* set only by session cancel
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  inboundItem     InboundItem     @relation(fields: [inboundItemId], references: [id], onUpdate: Cascade, onDelete: Restrict)
+  projectCategory ProjectCategory @relation(fields: [dbCode, projectCategoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  customerProject CustomerProject @relation(fields: [dbCode, customerProjectCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  location        Location        @relation(fields: [dbCode, locationCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pallet          Pallet?         @relation(fields: [dbCode, palletCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  container       Container?      @relation(fields: [dbCode, containerCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  receivedByUser  User            @relation(fields: [receivedBy], references: [code], onUpdate: Cascade, onDelete: Restrict)
+  parent          PackagingUnit?  @relation("SplitUnits", fields: [dbCode, parentCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  children        PackagingUnit[] @relation("SplitUnits")
+
+  @@unique([dbCode, code])
+  @@index([dbCode])
+  @@index([inboundItemId])
+  @@index([locationCode])
+  @@index([palletCode])
+  @@index([containerCode])
+  @@index([customerProjectCode])
+  @@index([receivedAt])
+  @@index([deletedAt])
+}
+
+//* reference data, crud screens come with the settings module
+model Commodity {
+  id       String  @id @default(cuid())
+  dbCode   String
+  code     String
+  name     String
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  inboundItems InboundItem[]
+
+  @@unique([dbCode, code])
+  @@index([dbCode])
+  @@index([deletedAt])
+}
+
+model PackagingType {
+  id       String  @id @default(cuid())
+  dbCode   String
+  code     String
+  name     String
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  deletedAt DateTime?
+  createdBy Int?
+  updatedBy Int?
+  deletedBy Int?
+
+  inboundItems InboundItem[]
+
+  @@unique([dbCode, code])
+  @@index([dbCode])
+  @@index([deletedAt])
+}
+
+model ProjectCategory {
+  id            String  @id @default(cuid())
+  dbCode        String
+  code          String
+  name          String
+  description   String?
+  isPoRequired  Boolean @default(false)
+  isMandatoryQc Boolean @default(false)
+  isActive      Boolean @default(true)
+  isSystem      Boolean @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @default(now()) @updatedAt
@@ -397,6 +642,8 @@ model ProjectCategory {
   customerProjects CustomerProject[]
   pallets          Pallet[]
   containers       Container[]
+  inbounds         Inbound[]
+  packagingUnits   PackagingUnit[]
 
   @@unique([dbCode, code])
   @@unique([dbCode, name])
@@ -421,9 +668,11 @@ model CustomerProject {
   updatedBy Int?
   deletedBy Int?
 
-  category   ProjectCategory @relation(fields: [dbCode, categoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
-  pallets    Pallet[]
-  containers Container[]
+  category       ProjectCategory @relation(fields: [dbCode, categoryCode], references: [dbCode, code], onUpdate: Cascade, onDelete: Restrict)
+  pallets        Pallet[]
+  containers     Container[]
+  inbounds       Inbound[]
+  packagingUnits PackagingUnit[]
 
   @@unique([dbCode, code])
   @@unique([dbCode, name])
@@ -471,6 +720,8 @@ model ItemMaster {
   createdBy Int?
   updatedBy Int?
   deletedBy Int?
+
+  inboundItems InboundItem[]
 
   @@unique([dbCode, ItemCode])
   @@index([dbCode])
@@ -676,6 +927,39 @@ model SequenceCounter {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([key, scope])
+}
+
+enum ActivitySource {
+  WEB
+  MOBILE
+  SYSTEM
+}
+
+//* append only, one row per user action, never edited or deleted
+model ActivityLog {
+  id           String         @id @default(cuid())
+  dbCode       String? //* null for global modules like users and roles
+  module       String //* ACTIVITY_MODULES key
+  entityId     String? //* record id, never its code, a code can be renamed
+  entityCode   String? //* code at the time
+  entityLabel  String? //* name at the time
+  parentModule String?
+  parentId     String?
+  action       String //* ACTIVITY_ACTIONS key
+  summary      String
+  changes      Json?
+  source       ActivitySource
+  userCode     Int? //* null for system rows
+  userName     String //* name at the time
+  batchId      String? //* shared by every row of one import or bulk generate
+  createdAt    DateTime       @default(now())
+
+  @@index([module, entityId, createdAt])
+  @@index([parentModule, parentId, createdAt])
+  @@index([dbCode, createdAt])
+  @@index([userCode, createdAt])
+  @@index([batchId])
+  @@index([createdAt])
 }
 
 //* test table for test data table

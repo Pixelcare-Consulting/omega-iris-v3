@@ -71,6 +71,48 @@ export default function ProjectCategoryContent() {
       meta: { title: 'Description', exportValue: (row) => row.description }
     },
     {
+      accessorFn: (row) => (row?.isPoRequired ? 'Yes' : 'No'),
+      accessorKey: 'isPoRequired',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='PO Required' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isPoRequired}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'PO Required',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isPoRequired ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isMandatoryQc ? 'Yes' : 'No'),
+      accessorKey: 'isMandatoryQc',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Mandatory QC' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isMandatoryQc}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Mandatory QC',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isMandatoryQc ? 'Yes' : 'No')
+      }
+    },
+    {
       accessorFn: (row) => (row?.isActive ? 'Yes' : 'No'),
       accessorKey: 'isActive',
       filterFn: multiSelectFilterFn,
@@ -128,24 +170,23 @@ export default function ProjectCategoryContent() {
                   </TooltipWrapper>
                 </CanView>
 
-                {!isSystem && (
-                  <>
-                    <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                      <TooltipWrapper label='Edit'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/project-categories/${code}`)}>
-                          <Icons.pencil className='text-muted-foreground size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
+                <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                  <TooltipWrapper label='Edit'>
+                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/project-categories/${code}`)}>
+                      <Icons.pencil className='text-muted-foreground size-4' />
+                    </Button>
+                  </TooltipWrapper>
+                </CanView>
 
-                    <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                      <TooltipWrapper label='Delete'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
-                          <Icons.trash className='text-destructive size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
-                  </>
+                {/* //* system rows can't be deleted */}
+                {!isSystem && (
+                  <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
                 )}
               </>
             ) : (
@@ -304,6 +345,8 @@ export default function ProjectCategoryContent() {
           <DataTableToolbar>
             <DataTableColumnFilterWrapper>
               <DataTableGlobalSearch table={table} isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isPoRequired')} title='PO Required' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isMandatoryQc')} title='Mandatory QC' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={isLoading} />

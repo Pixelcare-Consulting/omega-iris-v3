@@ -60,9 +60,7 @@ export async function getItemSeries(dbCode: string) {
     return { series: [] as SapSeries[], defaultSeries: null }
   }
 
-  const series = list.data.value
-    .filter((s) => s.IsManual !== 'tYES' && s.Locked !== 'tYES')
-    .sort((a, b) => a.Name.localeCompare(b.Name))
+  const series = list.data.value.filter((s) => s.IsManual !== 'tYES' && s.Locked !== 'tYES').sort((a, b) => a.Name.localeCompare(b.Name))
   const defaultCode = defaultSeries.ok ? defaultSeries.data.Series : null
 
   return { series, defaultSeries: series.some((s) => s.Series === defaultCode) ? defaultCode : (series[0]?.Series ?? null) }
@@ -171,7 +169,13 @@ export const getDataTableItemsSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(itemTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableItemsSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.ITEMS)) {
+      return { data: [] as ItemRow[], rowCount: 0, error: 'You are not allowed to view this!' as string | null }
+    }
+
+    return getDataTableItemsSvr(ctx.dbCode, parsedInput)
+  })
 
 export const upsertItem = action
   .use(authenticationMiddleware)

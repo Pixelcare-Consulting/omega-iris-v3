@@ -23,10 +23,11 @@ import { BP_MASTER_CONFIG, BpMasterType } from '@/constants/bp-master'
 import BpMasterOverviewTab from './bp-master-overview-tab'
 import BpAddressesTab from './bp-addresses-tab'
 import BpContactsTab from './bp-contacts-tab'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 
 type ViewBpMasterProps = { type: BpMasterType; bpMaster: BpMasterRow }
 
-const TABS_TITLE = ['Overview', 'Addresses', 'Contacts'] as const
+const TABS_TITLE = ['Overview', 'Addresses', 'Contacts', 'Activity'] as const
 const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
 export default function ViewBpMaster({ type, bpMaster }: ViewBpMasterProps) {
@@ -138,6 +139,10 @@ export default function ViewBpMaster({ type, bpMaster }: ViewBpMasterProps) {
 
         <TabsContent value='2' className='min-h-0 flex-1'>
           <BpContactsTab bpMaster={bpMaster} />
+        </TabsContent>
+
+        <TabsContent value='3' className='min-h-0 flex-1'>
+          <ActivityTimeline module={type === 'C' ? 'CUSTOMERS' : 'VENDORS'} entityId={bpMaster.id} />
         </TabsContent>
       </Tabs>
     </div>

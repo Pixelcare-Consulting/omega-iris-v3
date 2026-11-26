@@ -14,16 +14,19 @@ import LocationOverviewTab from './tabs/location-overview-tab'
 import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 import { LabelSize } from '@/constants/label'
 import { getLocationLabelPdfHref } from '@/lib/location'
 import { useDisclosure } from '@/hooks/use-disclosure'
 import LabelSizeModal from '@/components/label-size-modal'
+import ContentWrapper from '@/components/content-wrapper'
+import UnderDevelopment from '@/components/under-development'
 
 type ViewLocationProps = { location: LocationWithRelations }
 
 export default function ViewLocation({ location }: ViewLocationProps) {
-  const TABS_TITLE = ['Overview'] as const
+  const TABS_TITLE = ['Overview', 'Pallets', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -102,6 +105,16 @@ export default function ViewLocation({ location }: ViewLocationProps) {
 
         <TabsContent value='0' className='min-h-0 flex-1'>
           <LocationOverviewTab location={location} />
+        </TabsContent>
+
+        <TabsContent value='1' className='min-h-0 flex-1'>
+          <ContentWrapper className='h-full'>
+            <UnderDevelopment />
+          </ContentWrapper>
+        </TabsContent>
+
+        <TabsContent value='2' className='min-h-0 flex-1'>
+          <ActivityTimeline module='LOCATIONS' entityId={location.id} />
         </TabsContent>
       </Tabs>
 

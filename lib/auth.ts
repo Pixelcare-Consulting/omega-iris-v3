@@ -32,7 +32,10 @@ export const auth = betterAuth({
       lastSignin: { type: 'date', required: false, defaultValue: undefined },
       isDefaultPasswordChanged: { type: 'boolean', required: false, defaultValue: false },
       isLocked: { type: 'boolean', required: false, defaultValue: false },
-      isSystem: { type: 'boolean', required: false, defaultValue: false }
+      isSystem: { type: 'boolean', required: false, defaultValue: false },
+      //! input false, so sign up cannot set them, upsertUser owns both
+      isInternal: { type: 'boolean', required: false, defaultValue: false, input: false },
+      employeeId: { type: 'string', required: false, defaultValue: undefined, input: false }
     }
   },
   session: {
@@ -65,6 +68,8 @@ export const auth = betterAuth({
           isDefaultPasswordChanged: true,
           isLocked: true,
           isSystem: true,
+          isInternal: true,
+          employeeId: true,
           role: {
             include: {
               rolePermissions: {
@@ -78,7 +83,7 @@ export const auth = betterAuth({
       let sessionUser = null
 
       if (existingUser) {
-        const { id, code, fname, lname, mname, suffix, name, email, emailVerified, image, username, isActive, isDefaultPasswordChanged, isLocked, isSystem, role } =  existingUser // prettier-ignore
+        const { id, code, fname, lname, mname, suffix, name, email, emailVerified, image, username, isActive, isDefaultPasswordChanged, isLocked, isSystem, isInternal, employeeId, role } =  existingUser // prettier-ignore
 
         const rolePermissions = role.rolePermissions.map((rp) => ({
           id: rp.permission.id,
@@ -102,6 +107,8 @@ export const auth = betterAuth({
           isDefaultPasswordChanged,
           isLocked,
           isSystem,
+          isInternal,
+          employeeId,
           roleCode: role.code,
           roleName: role.name,
           roleKey: role.key,

@@ -6,6 +6,7 @@ import { getSapDatabaseAccess, setSessionDbCode } from '@/lib/sap/access'
 import { CHOOSE_DATABASE_ROUTE, PATHNAME_HEADER } from '@/constants/routes'
 import RBACGuardProvider from '@/components/providers/rbac-guard-provider'
 import AppPanelLayout from './_components/app-panel-layout'
+import { getOpenSession } from '@/actions/session'
 import { SapDatabase } from '@/prisma/generated/client'
 
 export default async function ProtectedRouteLayout({ children }: { children: React.ReactNode }) {
@@ -38,9 +39,17 @@ export default async function ProtectedRouteLayout({ children }: { children: Rea
 
   const user = session?.user ? { roleKey: session.user.roleKey, rolePermissions: session.user.rolePermissions } : null
 
+  //* the session bar shows on every page while one is open
+  const openSession = await getOpenSession(session?.session.dbCode ?? null, session?.user?.code ?? null)
+
   return (
     <RBACGuardProvider user={user}>
-      <AppPanelLayout user={session?.user ?? null} dbCode={session?.session.dbCode ?? null} sapDatabases={sapDatabases}>
+      <AppPanelLayout
+        user={session?.user ?? null}
+        dbCode={session?.session.dbCode ?? null}
+        sapDatabases={sapDatabases}
+        openSession={openSession}
+      >
         {children}
       </AppPanelLayout>
     </RBACGuardProvider>

@@ -44,6 +44,22 @@ export default function ProjectCategoryOverviewTab({ projectCategory }: ProjectC
 
           <Column md={6} lg={3}>
             <ReadOnlyField
+              title='PO Required'
+              description='Transactions under this category need a PO'
+              value={projectCategory.isPoRequired ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
+              title='Mandatory QC'
+              description='Transactions under this category need a QC'
+              value={projectCategory.isMandatoryQc ? 'Yes' : 'No'}
+            />
+          </Column>
+
+          <Column md={6} lg={3}>
+            <ReadOnlyField
               title='Active'
               description='Inactive categories are hidden from selection'
               value={projectCategory.isActive ? 'Yes' : 'No'}

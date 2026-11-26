@@ -83,14 +83,14 @@ export default function CustomerProjectContent({ categoryOptions }: CustomerProj
 
         return (
           <RelationLink href={`/project-categories/${data.category.code}/view`}>
-            <DataTableTextCell value={`${data.category.code} - ${data.category.name}`} highlight={table.getState().globalFilter} />
+            <DataTableTextCell value={data.category.name} highlight={table.getState().globalFilter} />
           </RelationLink>
         )
       },
       meta: {
         title: 'Category',
         options: categoryOptions,
-        exportValue: (row) => (row.category ? `${row.category.code} - ${row.category.name}` : '')
+        exportValue: (row) => (row.category ? `${row.category.code} (${row.category.name})` : '')
       }
     },
     {
@@ -151,24 +151,23 @@ export default function CustomerProjectContent({ categoryOptions }: CustomerProj
                   </TooltipWrapper>
                 </CanView>
 
-                {!isSystem && (
-                  <>
-                    <CanView subject={PERMISSIONS_CODES.CUSTOMER_PROJECTS} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                      <TooltipWrapper label='Edit'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/customer-projects/${code}`)}>
-                          <Icons.pencil className='text-muted-foreground size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
+                <CanView subject={PERMISSIONS_CODES.CUSTOMER_PROJECTS} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                  <TooltipWrapper label='Edit'>
+                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/customer-projects/${code}`)}>
+                      <Icons.pencil className='text-muted-foreground size-4' />
+                    </Button>
+                  </TooltipWrapper>
+                </CanView>
 
-                    <CanView subject={PERMISSIONS_CODES.CUSTOMER_PROJECTS} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                      <TooltipWrapper label='Delete'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
-                          <Icons.trash className='text-destructive size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
-                  </>
+                {/* //* system rows can't be deleted */}
+                {!isSystem && (
+                  <CanView subject={PERMISSIONS_CODES.CUSTOMER_PROJECTS} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
                 )}
               </>
             ) : (

@@ -20,7 +20,10 @@ import { auth } from '@/lib/auth'
 import { buildAbilityFor } from '@/lib/rbac'
 import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 import { toFullName } from '@/lib/user'
-import { toFieldListMessage } from '@/lib/duplicate'
+import { findSameText, isUniqueConstraintError, toFieldListMessage } from '@/lib/duplicate'
+import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { USER_ACTIVITY_CONFIG } from '@/lib/activity-configs/user'
 
 const COMMON_USER_INCLUDE = {
   role: true
@@ -74,9 +77,9 @@ export async function getDataTableUsersSvr(params: DataTableParams) {
   //* global filter
   if (globalFilter) {
     const filter = buildGlobalFilterWhere<typeof modelName>(globalFilter, {
-      stringFields: ['fname', 'mname', 'lname', 'suffix', 'name', 'email', 'username'],
+      stringFields: ['fname', 'mname', 'lname', 'suffix', 'name', 'email', 'username', 'employeeId'],
       numericFields: ['code'],
-      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }],
+      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }, { field: 'isInternal' }],
       relationFields: [{ relation: 'role', fields: ['name'] }]
     })
 
@@ -88,7 +91,7 @@ export async function getDataTableUsersSvr(params: DataTableParams) {
     const currentFilters = where.AND as Prisma.UserWhereInput[]
 
     const filters = buildColumnFiltersWhere<typeof modelName>(columnFilters, {
-      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }],
+      booleanFields: [{ field: 'isActive' }, { field: 'isLocked' }, { field: 'isInternal' }],
       dateFields: [{ field: 'createdAt' }, { field: 'updatedAt' }],
       relationFields: [{ id: 'roleName', relation: 'role', field: 'key' }]
     })
@@ -117,7 +120,10 @@ export async function getDataTableUsersSvr(params: DataTableParams) {
 export const getDataTableUsersSvrClient = action
   .use(authenticationMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ parsedInput }) => getDataTableUsersSvr(parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.USERS)) return { data: [], rowCount: 0 }
+    return getDataTableUsersSvr(parsedInput)
+  })
 
 export async function getUserById(id: string) {
   if (!id) return null
@@ -176,11 +182,18 @@ export const upsertUser = action
   .action(async ({ ctx, parsedInput }) => {
     const { code, password, confirmPassword, newPassword, newConfirmPassword, roleKey, isForceToChangePassword, isLocked, ...data } =
       parsedInput
-    const { userCode } = ctx
+    const { userCode, ability, actor } = ctx
     const actionTag = 'UPSERT_USER'
+    const isCreate = code === -1
+
+    const requiredAction = isCreate ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT
+
+    if (!ability?.can(requiredAction, PERMISSIONS_CODES.USERS)) {
+      return { status: 403, error: true, message: 'You are not allowed to do this!', action: actionTag }
+    }
 
     try {
-      const [existingUsername, existingEmail] = await Promise.all([
+      const [existingUsername, existingEmail, sameEmployeeIds] = await Promise.all([
         db.user.findFirst({
           where: {
             username: data.username,
@@ -192,13 +205,25 @@ export const upsertUser = action
             email: data.email,
             ...(code && code !== -1 && { code: { not: code } })
           }
-        })
+        }),
+        data.employeeId
+          ? db.user.findMany({
+              where: {
+                employeeId: { equals: data.employeeId, mode: 'insensitive' },
+                ...(code && code !== -1 && { code: { not: code } })
+              }
+            })
+          : []
       ])
+
+      //* ignores letter case, so EMP-01 clashes with emp-01
+      const existingEmployeeId = data.employeeId ? findSameText(sameEmployeeIds, (row) => row.employeeId ?? '', data.employeeId) : null
 
       const duplicates: DuplicateFields = []
 
       if (existingUsername) duplicates.push({ field: 'username', name: 'Username', message: 'Username already exists!' })
       if (existingEmail) duplicates.push({ field: 'email', name: 'Email', message: 'Email already exists!' })
+      if (existingEmployeeId) duplicates.push({ field: 'employeeId', name: 'Employee ID', message: 'Employee ID already exists!' })
 
       if (duplicates.length > 0) {
         const paths = duplicates.map((d) => ({ field: d.field, message: d.message }))
@@ -208,9 +233,17 @@ export const upsertUser = action
 
       //* update user
       if (code !== -1) {
-        const user = await db.user.findUnique({ where: { code }, include: { accounts: { where: { providerId: 'credential' } } } })
+        const user = await db.user.findUnique({
+          where: { code },
+          include: { role: true, accounts: { where: { providerId: 'credential' } } }
+        })
 
         if (!user) return { error: true, status: 404, message: 'User not found!', action: actionTag }
+
+        //! the table hides edit for system users, this is the check behind it
+        if (user.isSystem) {
+          return { error: true, status: 403, message: 'System generated user cannot be edited!', action: actionTag }
+        }
 
         let hashedPassword = user.accounts?.[0]?.password
 
@@ -235,7 +268,7 @@ export const upsertUser = action
               isLocked: isLocked ? true : false,
               failedLoginAttempts: isBeingUnlocked ? 0 : user.failedLoginAttempts
             },
-            include: { accounts: { where: { providerId: 'credential' } } }
+            include: { role: true, accounts: { where: { providerId: 'credential' } } }
           })
 
           //* update account password
@@ -246,13 +279,29 @@ export const upsertUser = action
             })
           }
 
+          const changes = diffActivity(USER_ACTIVITY_CONFIG, user, result)
+
+          //* the hash is never logged, only that it was reset
+          if (newPassword) changes.fields.push({ key: 'password', label: 'Password', from: null, to: 'Reset' })
+
+          await logActivity(tx, {
+            actor,
+            module: 'USERS',
+            action: 'UPDATE',
+            entity: { id: result.id, code: result.code, label: result.name },
+            changes
+          })
+
           //! revoke the EDITED user's sessions, not the caller's, revokeOtherSessions reads the admin's own cookies
           if (shouldRevokeSessions) await tx.authSession.deleteMany({ where: { userId: result.id } })
 
           return result
         })
 
-        return { status: 200, message: 'User updated successfully!', data: { user: updatedUser }, action: actionTag }
+        //! never send accounts back, the credential row holds the password hash
+        const { accounts: _accounts, ...safeUser } = updatedUser
+
+        return { status: 200, message: 'User updated successfully!', data: { user: safeUser }, action: actionTag }
       }
 
       const hashedPassword = await hashPassword(password!)
@@ -283,12 +332,25 @@ export const upsertUser = action
           }
         })
 
+        await logActivity(tx, {
+          actor,
+          module: 'USERS',
+          action: 'CREATE',
+          entity: { id: user.id, code: user.code, label: user.name },
+          changes: diffActivity(USER_ACTIVITY_CONFIG, null, user)
+        })
+
         return user
       })
 
       return { status: 200, message: 'User created successfully!', data: { user: newUser }, action: actionTag }
     } catch (err: any) {
       logger.error(err, `[${actionTag}_ERROR]:`)
+
+      //* a save that raced past the check above
+      if (isUniqueConstraintError(err)) {
+        return { status: 409, error: true, message: 'Username, email or employee ID already exists!', action: actionTag }
+      }
 
       if (err?.statusCode === 422) return { status: 422, message: 'Email already exists!', action: actionTag }
       if (err?.status === 409) return { status: 409, message: 'Username already exists!', action: actionTag }
@@ -341,15 +403,29 @@ export const updateBasicInfo = action
       }
 
       //* update user
-      const user = await db.user.findUnique({ where: { code } })
+      const user = await db.user.findUnique({ where: { code }, include: { role: true } })
 
       if (!user) return { error: true, status: 404, message: 'User not found!', action: actionTag }
 
+      //! the profile link is hidden for system users, this is the check behind it
+      if (user.isSystem) {
+        return { error: true, status: 403, message: 'System generated user cannot be edited!', action: actionTag }
+      }
+
       const name = toFullName(data)
 
-      const updatedUser = await db.user.update({
-        where: { code },
-        data: { ...data, name, updatedBy: userCode }
+      const updatedUser = await db.$transaction(async (tx) => {
+        const result = await tx.user.update({ where: { code }, data: { ...data, name, updatedBy: userCode }, include: { role: true } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'USERS',
+          action: 'UPDATE',
+          entity: { id: result.id, code: result.code, label: result.name },
+          changes: diffActivity(USER_ACTIVITY_CONFIG, user, result)
+        })
+
+        return result
       })
 
       return { status: 200, message: 'Basic info updated successfully!', data: { user: updatedUser }, action: actionTag }
@@ -440,6 +516,14 @@ export const changePassword = action
         //! update the credential account by its id, not the user id
         await tx.account.update({ where: { id: account.id }, data: { password: hashedPassword } })
 
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'USERS',
+          action: 'UPDATE',
+          entity: { id: user.id, code: user.code, label: user.name },
+          changes: { fields: [{ key: 'password', label: 'Password', from: null, to: 'Changed' }] }
+        })
+
         return user
       })
 
@@ -470,6 +554,10 @@ export const deleteUser = action
   .action(async ({ ctx, parsedInput }) => {
     const actionTag = 'DELETE_USER'
 
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.DELETE, PERMISSIONS_CODES.USERS)) {
+      return { status: 403, error: true, message: 'You are not allowed to do this!', action: actionTag }
+    }
+
     try {
       const user = await db.user.findUnique({ where: { code: parsedInput.code } })
 
@@ -485,6 +573,13 @@ export const deleteUser = action
 
         //! getSession and proxy.ts don't check deletedAt, a soft-deleted user would keep loading pages until their session expires
         await tx.authSession.deleteMany({ where: { userId: user.id } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'USERS',
+          action: 'DELETE',
+          entity: { id: user.id, code: user.code, label: user.name }
+        })
       })
 
       return { status: 200, message: 'User deleted successfully!', action: actionTag }
@@ -506,12 +601,24 @@ export const restoreUser = action
   .action(async ({ ctx, parsedInput }) => {
     const actionTag = 'RESTORE_USER'
 
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.RESTORE, PERMISSIONS_CODES.USERS)) {
+      return { status: 403, error: true, message: 'You are not allowed to do this!', action: actionTag }
+    }
+
     try {
       const user = await db.user.findUnique({ where: { code: parsedInput.code } })
 
       if (!user) return { error: true, status: 404, message: 'User not found!', action: actionTag }
 
-      await db.user.update({ where: { code: parsedInput.code }, data: { deletedAt: null, deletedBy: null, updatedBy: ctx.userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.user.update({ where: { code: parsedInput.code }, data: { deletedAt: null, deletedBy: null, updatedBy: ctx.userCode } })
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'USERS',
+          action: 'RESTORE',
+          entity: { id: user.id, code: user.code, label: user.name }
+        })
+      })
 
       return { status: 200, message: 'User restored successfully!', action: actionTag }
     } catch (err: any) {

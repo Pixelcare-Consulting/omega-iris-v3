@@ -53,6 +53,8 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
       suffix: '',
       username: '',
       email: '',
+      employeeId: '',
+      isInternal: false,
       password: '',
       confirmPassword: '',
       roleCode: 0,
@@ -71,6 +73,7 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
       return {
         ...user,
         roleKey: user.role.key,
+        employeeId: user.employeeId ?? '',
         password: '',
         confirmPassword: '',
         newPassword: '',
@@ -255,6 +258,16 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                 </Column>
 
                 <Column md={6} lg={3}>
+                  <InputField
+                    control={form.control}
+                    name='employeeId'
+                    label='Employee ID'
+                    description='Employee ID must be unique'
+                    transform={(value) => value.toUpperCase()}
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
                   <ComboboxField
                     control={form.control}
                     type='Basic'
@@ -326,6 +339,16 @@ export default function UserForm({ pageMetaData, user }: UserFormProps) {
                     layout='choice-card'
                     description='Is this user active?'
                     extendedProps={{ switchProps: { disabled: isCreate } }}
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isInternal'
+                    label='Internal'
+                    layout='choice-card'
+                    description='Is this user Omega personnel?'
                   />
                 </Column>
 

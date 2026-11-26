@@ -21,7 +21,9 @@ pnpm db:seed        # db:reset then tsx prisma/seed.ts
 pnpm db:studio      # prisma studio --browser none
 ```
 
-**`pnpm db:seed` runs `db:reset` first, so it force-resets the database.** Never run it to pick up a new permission or reference entry against data worth keeping; add that row by hand instead. Same for `db:reset` itself.
+**`pnpm db:seed` runs `db:reset` first, so it force-resets the database.** Never run it to pick up a new permission or reference entry against data worth keeping. Same for `db:reset` itself. For permissions, run `pnpm db:update-permission` ([scripts/update-permissions.ts](scripts/update-permissions.ts)): it adds new `DEFAULT_PERMISSIONS` rows and actions, never deletes, and never touches role grants. Other reference rows still go in by hand.
+
+Seeds that reset the database live in `prisma/`. Scripts that are safe to run on live data (`update-permissions`, `migrate-file-attachments`) live in `scripts/`.
 
 There is no test setup in this repo. Verification is `pnpm lint` and `pnpm build`.
 
@@ -102,7 +104,7 @@ Permission codes and allowed actions are declared in [constants/permission.ts](c
 - Server side: `ctx.ability` from the middleware, or `getCurrentUserWithAbility()` in [actions/user.ts](actions/user.ts).
 - Client side: `AbilityContext` ([contexts/ability.ts](contexts/ability.ts)) provided by `components/providers/rbac-guard-provider.tsx`; gate UI with `<Can I='edit' a='p-users'>` ([components/rbac/can.tsx](components/rbac/can.tsx)) or `CanView`.
 
-Adding a module means: add a `PERMISSIONS_CODES` entry + `DEFAULT_PERMISSIONS` record, reseed, then guard the UI and the page. **Reseeding wipes the database, so it is a development-only step.** In production insert the `Permission` and `RolePermission` rows by hand.
+Adding a module means: add a `PERMISSIONS_CODES` entry + `DEFAULT_PERMISSIONS` record, run `pnpm db:update-permission`, then guard the UI and the page. The script adds the `Permission` row or its new actions on any database. Granting them to roles (`RolePermission`) is still done in the Roles screen or by hand.
 
 ### Data tables
 
@@ -112,6 +114,17 @@ Two modes, pick per page:
 - **Server-side**: `useDataTableServer` + a `getDataTable<Entity>Svr(params)` action. `params` is validated by `dataTableParamsSchema` ([schema/data-table.ts](schema/data-table.ts)); [lib/data-table.ts](lib/data-table.ts) provides `buildColumnFiltersWhere` / `buildGlobalFilterWhere` that translate filter state into Prisma `where` input. The same action serves exports (`isExport` flag) via [lib/xlsx.ts](lib/xlsx.ts).
 
 Shared table UI is in [components/data-table/](components/data-table/); column meta typing is extended in [types/react-table.d.ts](types/react-table.d.ts).
+
+### Relation links
+
+A column or read-only field that shows a related record links to that record's view page through `RelationLink` ([components/relation-link.tsx](components/relation-link.tsx)). Use it instead of a plain `Link` or `DataTableLinkCell`, so every link looks the same and a click never fires the row's own handler.
+
+- **List cells show the code only**, to keep columns narrow. Wrap the existing `DataTableTextCell` in the link so search highlighting still works. A user shows their name and links by `code`. The customer projects list shows the category name, the one place a name beats the code.
+- **View pages show `code (name)`** through `toCodeName` in [lib/utils.ts](lib/utils.ts), since a field has room for it. It also tags a deleted or inactive record. Reference data with a code and name uses it too, such as commodity, packaging type and the lookups the settings module will add, even when the field has no view page to link to.
+- **Exports write `code (name)`** in `exportValue`, whatever the cell shows.
+- **Empty values stay unlinked.** Return the plain dash (`<DataTableTextCell value={null} />` in a cell, `null` in a field).
+- **The href** is `/<entities>/${encodeURIComponent(code)}/view`. Item masters link by `ItemCode`, which `InboundItem.mpn` already holds.
+- **The link checks no permission.** The target page's `authorizePage` sends a user without access to the unauthorized page.
 
 ### Soft deletes
 
@@ -147,11 +160,11 @@ Icons are re-exported through [components/icons.ts](components/icons.ts). Import
 Mirror the `users` module end to end; touching fewer than these files usually means something is unguarded.
 
 1. **Model.** Add to [prisma/schema.prisma](prisma/schema.prisma) with the standard audit columns (`code @unique @default(autoincrement())`, `createdAt/updatedAt/deletedAt`, `createdBy/updatedBy/deletedBy`), then `pnpm db:push`.
-2. **Permission.** Add a `PERMISSIONS_CODES` entry and a `DEFAULT_PERMISSIONS` record in [constants/permission.ts](constants/permission.ts); reseed with `pnpm db:seed`.
+2. **Permission.** Add a `PERMISSIONS_CODES` entry and a `DEFAULT_PERMISSIONS` record in [constants/permission.ts](constants/permission.ts); run `pnpm db:update-permission`.
 3. **Schema.** `schema/<entity>.ts` exporting `<entity>FormSchema` + inferred `<Entity>Form`.
-4. **Actions.** `actions/<entity>.ts`: a `COMMON_<ENTITY>_INCLUDE` constant + exported `Prisma.<Entity>GetPayload` type, plain read functions, `getDataTable<Entity>Svr`, `upsert<Entity>`, `delete/restore`, plus the `...Client` wrappers.
+4. **Actions.** `actions/<entity>.ts`: a `COMMON_<ENTITY>_INCLUDE` constant + exported `Prisma.<Entity>GetPayload` type, plain read functions, `getDataTable<Entity>Svr`, `upsert<Entity>`, `delete/restore`, plus the `...Client` wrappers. Each mutation calls `logActivity` in its transaction, with a config in `lib/activity-configs/<entity>.ts` and an `ACTIVITY_MODULES` entry.
 5. **Hooks.** `hooks/safe-actions/<entity>.ts`.
-6. **UI.** `app/(protected)/<entities>/page.tsx` (list), `[code]/page.tsx` (add/edit), `[code]/view/page.tsx` (view), with local pieces under `_components/`.
+6. **UI.** `app/(protected)/<entities>/page.tsx` (list), `[code]/page.tsx` (add/edit), `[code]/view/page.tsx` (view, with an Activity tab), with local pieces under `_components/`.
 7. **Nav.** Add a `MenuItem` to `MENU_GROUPS` in [constants/config.ts](constants/config.ts) with `subjects`/`actions` set to the new permission; the sidebar renders and filters from that data, so no component edit is needed.
 
 No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path that is not in `PUBLIC_ROUTES` / `AUTH_ROUTES` already requires a session.
@@ -192,7 +205,7 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 
 ## PDFs
 
-- **How they render.** `@react-pdf/renderer` on the server, from a route handler that calls `renderToBuffer`. Copy [app/api/locations/[code]/label/pdf/route.ts](<app/api/locations/[code]/label/pdf/route.ts>). It returns 401 without a session or `dbCode`, 403 without the permission, and serves inline by default or as an `attachment` with `?download=1`. The href helper lives in the module's `lib/` file, like `getLocationLabelPdfHref` in [lib/location.ts](lib/location.ts).
+- **How they render.** `@react-pdf/renderer` on the server, from a route handler that calls `renderToBuffer`. Copy [app/api/locations/[code]/label/pdf/route.ts](app/api/locations/[code]/label/pdf/route.ts). It returns 401 without a session or `dbCode`, 403 without the permission, and serves inline by default or as an `attachment` with `?download=1`. The href helper lives in the module's `lib/` file, like `getLocationLabelPdfHref` in [lib/location.ts](lib/location.ts).
 - **Many records in one PDF.** POST the ids in the body, not the URL, like `POST /api/locations/labels/pdf`. The client sends it with axios as a blob through `useLabelsPdf(endpoint)` ([hooks/use-labels-pdf.ts](hooks/use-labels-pdf.ts)), which opens the tab before the request so the popup blocker lets it through.
 - **Documents** go in [components/pdf/](components/pdf/). Read the records through a plain read function in `actions/`, never an exported include, since a `'use server'` file can only export async functions.
 - **QR codes.** `qrcode.react` is for the screen only, it outputs DOM `<svg>` that react-pdf cannot draw. In a PDF, use `getQrPath` from [lib/qr.ts](lib/qr.ts) inside a react-pdf `<Svg>`.
@@ -205,6 +218,50 @@ No route-guard step is needed: [proxy.ts](proxy.ts) fails closed, so any path th
 - **Container location.** The location decides. A container can go on any active location, and the pallet is optional. A pallet is only allowed when the location allows pallets and the pallet already sits there. `validateContainerRefs` in [actions/container.ts](actions/container.ts) holds every container rule: an active location, an active pallet at that location, a pallet of the same project for project containers, and a general purpose pallet for general purpose containers. A container and its pallet always agree on the project.
 - **Blocks.** A pallet with live containers can't leave Active. A location with live pallets can't turn off Pallet Allowed. A pallet can't be restored onto a location that is inactive or no longer allows pallets. A container can't be restored onto an inactive location, or a pallet that is no longer Active or has moved. A customer project's category is locked after create, since pallet and container codes hold it. Each block returns 409.
 - **Moves.** A later movement feature changes locations. Moving a pallet there also moves its containers.
+
+## Sessions
+
+A `Session` is one stretch of floor work by one user at one site, for one `SessionType`. [actions/session.ts](actions/session.ts) and [actions/inbound.ts](actions/inbound.ts) hold the actions, and the screens live under `/sessions` and `/inbound`. Inbound is the only process built so far.
+
+- **Lines.** `Session` is the header only. Each process gets its own table that points at the session by `dbCode` + `sessionCode`, the way `SessionPause` does. Inbound has `Inbound` with its `InboundItem` rows, and movement and cycle count will add their own. One generic line table would not fit, since inbound, movement and cycle count lines share almost no fields.
+- **Codes.** `S-<yyyy>-<000001>`, e.g. `S-2026-000125`, one prefix for every type. `SESSION_SEQUENCE` in [lib/session-sequence.ts](lib/session-sequence.ts) makes them inside the start transaction under the `SESSION` key. The scope is `<dbCode>:<yyyy>`, so each database counts on its own and every year starts over. The code leaves `dbCode` out, since `Session` is unique on `dbCode` + `code`.
+- **Start.** A user has at most one session that is `IN_PROGRESS` or `PAUSED`, and starting a second returns 409. Prisma cannot express that partial unique index, so the action checks it. The site must have the matching `isEnable*` switch on. The action copies `employeeId` from the user, so old sessions keep the right person after the user's id changes.
+- **Pauses.** Each pause is a `SessionPause` row. Active time is `endedAt - startedAt` minus the closed pauses.
+- **Cancel, never delete.** A cancelled session keeps its rows and gets a `cancelReason`. Its draft and submitted inbounds turn `CANCELLED`, and their unique IDs get `deletedAt`, logged as one `DELETE` per unit plus a `BULK_DELETE` row. This is the only way a unit is deleted.
+- **Unique IDs.** `submitInbound` creates them inside its transaction, one per package, so labels print right after submit. Completing a session only closes it.
+- **PO match.** A PO required inbound checks each MPN's package total against that MPN's open qty, summed over its PO lines. Save and import block a total above it, and submit with partial receiving off also blocks a total below it.
+- **Mobile.** A mobile app will read and write sessions later. It cannot call server actions, so it goes through route handlers under `/api/mobile/` with better-auth bearer tokens.
+- **Naming.** `User.sessions` is `Session[]`, and better-auth's own relation is `authSessions`. If `@better-auth/cli generate` writes `sessions AuthSession[]` back onto `User`, reject that part.
+- **Users.** `isInternal` marks Omega personnel. `employeeId` is optional, saved uppercase, and unique. Both are `input: false` in [lib/auth.ts](lib/auth.ts), so only `upsertUser` writes them.
+
+## Activity log
+
+Every change a user makes writes one `ActivityLog` row. Each view page reads them back on its Activity tab, and `/audit-logs` lists them all. [lib/activity-log.ts](lib/activity-log.ts) holds the helpers, and [constants/activity-log.ts](constants/activity-log.ts) holds the module and action names.
+
+- **Writing.** Call `logActivity(tx, …)` inside the mutation's `db.$transaction`, so a failed save logs nothing. Pass `ctx.actor` and `diffActivity(config, before, after)`. An `UPDATE` with no changed fields writes nothing, and one that only flips `isActive` or `status` saves as `STATUS`. A write with no stored before values, such as SAP or another third party, keeps its row only when it passes a `summary`.
+- **Configs.** One per module in [lib/activity-configs/](lib/activity-configs/), listing the fields to log with their form labels. Only listed fields are logged, so a password or token never gets in by accident. A lookup uses `format` to show its name, and a child array (BP addresses, role permissions) goes under `children` with a `matchKey`. Configs can't sit in `actions/`, since a `'use server'` file only exports async functions.
+- **Ids and names.** `entityId` is the record `id`, never its `code`, so a rename keeps the history together. The code, name and user name are saved as they were at the time.
+- **Modules.** `ACTIVITY_MODULES` keys are modules, not Prisma models, so customers and vendors log apart. A child module has no permission of its own and reads through its parent.
+- **Colors.** Each action has one of four tones by meaning: green for added or brought back, blue for changed, red for removed or failed, gray for no data changed. A new action picks one of these. Never add a fifth.
+- **Bulk writes.** Bulk generate and imports call `logActivities`, one `createMany` for the chunk, with one `batchId` for the run. That is one `CREATE` per record plus one `BULK_CREATE` or `IMPORT` summary row. The "Show affected records" button in the Audit Logs Actions column filters by that `batchId`, and a "Showing: <summary>" chip clears it. A SAP pull works the same way, with batch id `<sync key>:<startedAt>`. Each page logs only the records that came in new ("Created from SAP") or actually changed ("… from SAP"), and the finish call writes the `SYNC_FROM_SAP` summary. The page adds the log rows as one more `createMany` inside its existing batch transaction, and a new record's id is made with `createId()` first so its row can point at it.
+- **Source.** `WEB`, `MOBILE` or `SYSTEM`. `SYSTEM_ACTOR` has no `userCode` and shows as "System generated". The seed logs every record it makes with it.
+- **Seed.** `lib/activity-log.ts` has no `server-only` and no `db` import, because [prisma/seed.ts](prisma/seed.ts) runs it under plain `tsx` with its own client. Keep it that way.
+- **Reading.** `<ActivityTimeline module entityId />` goes on the view page's Activity tab. Its search also reads the shown change text (`label`, `from`, `to` at any depth) through a `jsonb_path_query` over that one record's rows. Audit Logs never searches the JSON, since there it would scan every row. Matching entries on the first page open with the term highlighted. Both reads drop modules the user can't view and rows from other SAP databases. `/audit-logs` needs `p-audit-logs`, which `pnpm db:update-permission` adds.
+- **Mobile.** A mobile route passes an actor with `source: 'MOBILE'`. How a save gets shared with mobile is under "Sharing a save with mobile" below.
+- **Not logged yet.** [actions/item.ts](actions/item.ts) and [actions/business-partner.ts](actions/business-partner.ts) write straight to SAP and stay out for now.
+- **Growth.** The table only grows, and nothing deletes rows yet. The agreed plan is a scheduled job that deletes rows older than 2 years. Until it exists, an admin can run that delete by hand. Rows are append only in the app, so this job is the one place allowed to remove them.
+
+## Sharing a save with mobile
+
+This is the current plan and not final yet. Check with the user before the first move.
+
+A route handler can't call a server action, so when a module gets an `/api/mobile/` endpoint, its save moves out and both sides call the same code. The web side must behave exactly as before.
+
+- **Where it goes.** `services/<entity>.ts`, starting with `import 'server-only'` and with no `'use server'`. A `'use server'` file turns every exported async function into an endpoint, so a `saveSite(ctx, input)` there would let the browser send its own `ctx` and act as any user.
+- **What moves.** The whole `.action(async ({ ctx, parsedInput }) => { … })` body moves as is into `export async function saveSite(ctx: MutationContext, input: SiteForm)`. That includes the permission check, duplicate checks, transaction, `logActivity` call and return envelope, so mobile gets the same rules. The wrapper becomes `.action(({ ctx, parsedInput }) => saveSite(ctx, parsedInput))` and keeps its name, input and result, so hooks and forms don't change.
+- **Where `ctx` comes from.** `MutationContext` (in `types/`) holds what the bodies read: `userCode`, `dbCode`, `ability`, `actor`. `loadUserContext(session)` in `lib/user-context.ts` does the user, role and ability load that `authenticationMiddleware` does now, and the middleware calls it. It imports only from `lib/`, never `actions/`, to keep the circular import rule in [lib/safe-action.ts](lib/safe-action.ts).
+- **The mobile route.** It gets the session from the bearer token, calls `loadUserContext`, checks SAP database access the way `tenantMiddleware` does, and sets `source: 'MOBILE'`. It runs the input through the same zod schema with `safeParse`, calls the save, and returns the envelope as JSON with its `status`.
+- **Doing it safely.** Move one module per change, and only when its mobile endpoint gets built. The body moves without edits, and any fix found on the way is a separate change. After each move, run `pnpm lint` and `pnpm build`, then on the web page run add, edit, a duplicate name, delete and restore, and check the Activity tab.
 
 ## SAP sync
 

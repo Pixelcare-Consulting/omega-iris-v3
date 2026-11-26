@@ -142,6 +142,30 @@ export type SapItemBody = Partial<SapItem>
 
 export type SapItemGroup = { Number: number; GroupName: string }
 export type SapManufacturer = { Code: number; ManufacturerName: string }
+
+export type SapPurchaseOrderLine = {
+  LineNum: number
+  ItemCode: string
+  ItemDescription: string
+  Quantity: number
+  RemainingOpenQuantity: number
+  Price: number
+  LineStatus: string
+}
+
+export type SapPurchaseOrder = {
+  DocEntry: number
+  DocNum: number
+  CardCode: string
+  CardName: string
+  DocDate: string
+  DocDueDate: string
+  DocumentStatus: string
+}
+
+//* one row of the po crossjoin, the header repeats on every line
+export type SapPurchaseOrderLineRow = { PurchaseOrders: SapPurchaseOrder; 'PurchaseOrders/DocumentLines': SapPurchaseOrderLine }
+
 export type SapVatGroup = { Code: string; Name: string; Category: string; Inactive: SapYesNo }
 
 //* object code 2 is business partners, the sub type picks customer, vendor or lead

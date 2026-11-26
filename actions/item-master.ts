@@ -16,6 +16,8 @@ import { findSameText, isUniqueConstraintError, toDuplicateMessage, toFieldListM
 import { DuplicateFields } from '@/types/common'
 import { sapFetch } from '@/lib/sap/service-layer'
 import { SapItemGroup, SapManufacturer } from '@/types/sap'
+import { diffActivity, logActivity } from '@/lib/activity-log'
+import { ITEM_MASTER_ACTIVITY_CONFIG } from '@/lib/activity-configs/item-master'
 
 export type ItemMasterRow = ItemMaster
 
@@ -107,7 +109,10 @@ export const getDataTableItemMastersSvrClient = action
   .use(authenticationMiddleware)
   .use(tenantMiddleware)
   .inputSchema(dataTableParamsSchema)
-  .action(async ({ ctx, parsedInput }) => getDataTableItemMastersSvr(ctx.dbCode, parsedInput))
+  .action(async ({ ctx, parsedInput }) => {
+    if (!ctx.ability?.can(PERMISSIONS_ALLOWED_ACTIONS.VIEW, PERMISSIONS_CODES.ITEM_MASTERS)) return { data: [], rowCount: 0 }
+    return getDataTableItemMastersSvr(ctx.dbCode, parsedInput)
+  })
 
 //* names the picked codes from sap, null when sap is unreachable
 async function resolveSapNames(dbCode: string, data: Pick<ItemMasterForm, 'FirmCode' | 'ItmsGrpCod'>) {
@@ -196,22 +201,46 @@ export const upsertItemMaster = action
 
       //* update item, a failed one goes back to pending once edited
       if (existing) {
-        const itemMaster = await db.itemMaster.update({
-          where: { id: existing.id },
-          data: {
-            ...data,
-            ...names,
-            ...(existing.syncStatus === 'FAILED' && { syncStatus: 'PENDING', syncError: null }),
-            updatedBy: userCode
-          }
+        const itemMaster = await db.$transaction(async (tx) => {
+          const result = await tx.itemMaster.update({
+            where: { id: existing.id },
+            data: {
+              ...data,
+              ...names,
+              ...(existing.syncStatus === 'FAILED' && { syncStatus: 'PENDING', syncError: null }),
+              updatedBy: userCode
+            }
+          })
+
+          await logActivity(tx, {
+            actor: ctx.actor,
+            module: 'ITEM_MASTERS',
+            action: 'UPDATE',
+            dbCode,
+            entity: { id: result.id, code: result.ItemCode, label: result.ItemName },
+            changes: diffActivity(ITEM_MASTER_ACTIVITY_CONFIG, existing, result)
+          })
+
+          return result
         })
 
         return { status: 200, error: false, message: 'Item master updated successfully!', action: actionTag, data: { itemMaster } }
       }
 
       //* create item
-      const itemMaster = await db.itemMaster.create({
-        data: { ...data, ...names, dbCode, createdBy: userCode, updatedBy: userCode }
+      const itemMaster = await db.$transaction(async (tx) => {
+        const result = await tx.itemMaster.create({ data: { ...data, ...names, dbCode, createdBy: userCode, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ITEM_MASTERS',
+          action: 'CREATE',
+          dbCode,
+          entity: { id: result.id, code: result.ItemCode, label: result.ItemName },
+          changes: diffActivity(ITEM_MASTER_ACTIVITY_CONFIG, null, result)
+        })
+
+        return result
       })
 
       return { status: 200, error: false, message: 'Item master created successfully!', action: actionTag, data: { itemMaster } }
@@ -264,7 +293,23 @@ export const setItemMasterThumbnail = action
         if (!fileAttachment) return { status: 400, error: true, message: 'Thumbnail file not found!', action: actionTag }
       }
 
-      const updated = await db.itemMaster.update({ where: { id }, data: { thumbnail, updatedBy: userCode } })
+      const updated = await db.$transaction(async (tx) => {
+        const result = await tx.itemMaster.update({ where: { id }, data: { thumbnail, updatedBy: userCode } })
+
+        //* a file id means nothing to a reader, so only say what happened
+        const change = !itemMaster.thumbnail ? 'Added' : thumbnail ? 'Changed' : 'Removed'
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ITEM_MASTERS',
+          action: 'UPDATE',
+          dbCode,
+          entity: { id: result.id, code: result.ItemCode, label: result.ItemName },
+          changes: { fields: [{ key: 'thumbnail', label: 'Thumbnail', from: null, to: change }] }
+        })
+
+        return result
+      })
 
       //* the column moves first, a failed file delete only leaves a stray file
       if (itemMaster.thumbnail) await deleteThumbnailFile(itemMaster.thumbnail)
@@ -313,7 +358,17 @@ export const deleteItemMaster = action
       }
 
       //* the thumbnail stays, a restore brings it back
-      await db.itemMaster.update({ where: { id: itemMaster.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.itemMaster.update({ where: { id: itemMaster.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ITEM_MASTERS',
+          action: 'DELETE',
+          dbCode,
+          entity: { id: itemMaster.id, code: itemMaster.ItemCode, label: itemMaster.ItemName }
+        })
+      })
 
       return { status: 200, error: false, message: 'Item master deleted successfully!', action: actionTag }
     } catch (err: any) {
@@ -340,7 +395,17 @@ export const restoreItemMaster = action
 
       if (!itemMaster) return { status: 404, error: true, message: 'Item master not found!', action: actionTag }
 
-      await db.itemMaster.update({ where: { id: itemMaster.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+      await db.$transaction(async (tx) => {
+        await tx.itemMaster.update({ where: { id: itemMaster.id }, data: { deletedAt: null, deletedBy: null, updatedBy: userCode } })
+
+        await logActivity(tx, {
+          actor: ctx.actor,
+          module: 'ITEM_MASTERS',
+          action: 'RESTORE',
+          dbCode,
+          entity: { id: itemMaster.id, code: itemMaster.ItemCode, label: itemMaster.ItemName }
+        })
+      })
 
       return { status: 200, error: false, message: 'Item master restored successfully!', action: actionTag }
     } catch (err: any) {

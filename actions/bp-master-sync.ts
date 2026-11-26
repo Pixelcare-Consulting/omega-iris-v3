@@ -23,6 +23,9 @@ import {
   CARD_CODE_MAX_LENGTH
 } from '@/schema/bp-master'
 import { BatchError, BatchErrorEntry, BatchStepResult } from '@/types/batch'
+import { createId } from '@paralleldrive/cuid2'
+import { diffActivity, hasActivityChanges, LogActivityInput, logActivity, toActivityRows, toActivitySummary } from '@/lib/activity-log'
+import { BP_MASTER_ACTIVITY_CONFIG, BpMasterActivityRow } from '@/lib/activity-configs/bp-master'
 import { SapBusinessPartner, SapBusinessPartnerBody, SapCompanyPrivate, SapState } from '@/types/sap'
 
 const PULL_FIELDS = [
@@ -87,7 +90,7 @@ export const syncBpMastersFromSapPage = action
   .inputSchema(bpMasterSyncFromSapPageSchema)
   .action(async ({ ctx, parsedInput }) => {
     const { dbCode, userCode, ability } = ctx
-    const { type, since, skip, metaData } = parsedInput
+    const { type, startedAt, since, skip, metaData } = parsedInput
     const actionTag = 'SYNC_BP_MASTERS_FROM_SAP_PAGE'
 
     if (!canSync(ability, type, PERMISSIONS_ALLOWED_ACTIONS.SYNC_FROM_SAP)) return { ...FORBIDDEN, action: actionTag }
@@ -140,21 +143,14 @@ export const syncBpMastersFromSapPage = action
             db.businessPartner.findMany({
               //! insensitive equals runs as ILIKE, a code ending in \ would throw unless escaped
               where: { dbCode, OR: chunk.map((bp) => ({ CardCode: { equals: escapeLikeKeyword(bp.CardCode), mode: 'insensitive' as const } })) }, // prettier-ignore
-              select: { id: true, CardCode: true }
+              //* whole rows with their children, the merge and the activity diff both read them
+              include: { addresses: true, contacts: true }
             })
           )
         )
       ).flat()
 
       const existingByCode = new Map(existingRows.map((row) => [row.CardCode.toLowerCase(), row]))
-
-      //* portal children of the matched partners, keyed by their current code
-      const existingCodes = existingRows.map((row) => row.CardCode)
-
-      const [portalAddresses, portalContacts] = await Promise.all([
-        db.bpAddress.findMany({ where: { dbCode, CardCode: { in: existingCodes } }, select: { id: true, CardCode: true, AddressName: true, AddrType: true } }), // prettier-ignore
-        db.contact.findMany({ where: { dbCode, CardCode: { in: existingCodes } }, select: { id: true, CardCode: true, ContactName: true } })
-      ])
 
       //* states load once per country on this page, a failed load fails the page so names never blank out
       const countries = new Set(rows.flatMap((bp) => (bp.BPAddresses ?? []).flatMap((a) => (a.Country && a.State ? [a.Country] : []))))
@@ -171,9 +167,19 @@ export const syncBpMastersFromSapPage = action
       const now = new Date()
       const synced = { syncStatus: 'SYNCED' as const, syncedAt: now, syncError: null }
 
-      const partnerOps: Prisma.PrismaPromise<unknown>[] = []
-      const partnerCreates: Prisma.BusinessPartnerCreateManyInput[] = []
-      const childOps: Prisma.PrismaPromise<unknown>[] = []
+      //* all four run together in one transaction at the end of the page
+      const partnerOps: Prisma.PrismaPromise<unknown>[] = [] //* updates to partners already in the portal
+      const partnerCreates: Prisma.BusinessPartnerCreateManyInput[] = [] //* new partners, saved with one createMany
+      const childOps: Prisma.PrismaPromise<unknown>[] = [] //* address and contact creates, updates and pending marks
+      const activities: LogActivityInput[] = [] //* one activity row per partner that is new or changed
+
+      //* one batch per run, the finish summary row carries the same id
+      const activityBase = {
+        actor: ctx.actor,
+        module: type === 'C' ? ('CUSTOMERS' as const) : ('VENDORS' as const),
+        dbCode,
+        batchId: `${BP_SYNC_KEYS[type].from}:${startedAt}`
+      }
 
       for (const bp of rows) {
         const sapFields = {
@@ -196,22 +202,23 @@ export const syncBpMastersFromSapPage = action
 
         const existing = existingByCode.get(bp.CardCode.toLowerCase())
 
+        //* the id is made here for a new partner so its activity row can point at it
+        const partnerId = existing?.id ?? createId()
+
         //* isActive and deletedAt are portal fields, never touched
         if (existing)
           partnerOps.push(db.businessPartner.update({ where: { id: existing.id }, data: { ...sapFields, updatedBy: userCode } }))
-        else partnerCreates.push({ ...sapFields, dbCode, createdBy: userCode, updatedBy: userCode })
+        else partnerCreates.push({ ...sapFields, id: partnerId, dbCode, createdBy: userCode, updatedBy: userCode })
 
         const parent = { dbCode, CardCode: bp.CardCode }
 
         //* match by name without case, portal rows sap doesn't have stay and turn pending
-        const addressesByKey = new Map(
-          portalAddresses
-            .filter((a) => existing && a.CardCode === existing.CardCode)
-            .map((a) => [`${a.AddrType}|${a.AddressName.toLowerCase()}`, a.id])
-        )
-        const contactsByKey = new Map(
-          portalContacts.filter((c) => existing && c.CardCode === existing.CardCode).map((c) => [c.ContactName.toLowerCase(), c.id])
-        )
+        const addressesByKey = new Map((existing?.addresses ?? []).map((a) => [`${a.AddrType}|${a.AddressName.toLowerCase()}`, a.id]))
+        const contactsByKey = new Map((existing?.contacts ?? []).map((c) => [c.ContactName.toLowerCase(), c.id]))
+
+        //* the after side of the activity diff, kept rows stay, a new one gets a stand-in id that never matches
+        const afterAddresses = new Map<string, Record<string, unknown>>((existing?.addresses ?? []).map((a) => [a.id, a]))
+        const afterContacts = new Map<string, Record<string, unknown>>((existing?.contacts ?? []).map((c) => [c.id, c]))
 
         for (const address of bp.BPAddresses ?? []) {
           if (!address.AddressName?.trim()) continue
@@ -244,7 +251,11 @@ export const syncBpMastersFromSapPage = action
           if (addressId) {
             childOps.push(db.bpAddress.update({ where: { id: addressId }, data: { ...data, updatedBy: userCode } }))
             addressesByKey.delete(key)
-          } else childOps.push(db.bpAddress.create({ data: { ...data, ...parent, createdBy: userCode, updatedBy: userCode } }))
+            afterAddresses.set(addressId, { ...afterAddresses.get(addressId), ...data })
+          } else {
+            childOps.push(db.bpAddress.create({ data: { ...data, ...parent, createdBy: userCode, updatedBy: userCode } }))
+            afterAddresses.set(`new:${key}`, { ...data, id: `new:${key}` })
+          }
         }
 
         for (const contact of bp.ContactEmployees ?? []) {
@@ -270,7 +281,25 @@ export const syncBpMastersFromSapPage = action
           if (contactId) {
             childOps.push(db.contact.update({ where: { id: contactId }, data: { ...data, updatedBy: userCode } }))
             contactsByKey.delete(key)
-          } else childOps.push(db.contact.create({ data: { ...data, ...parent, createdBy: userCode, updatedBy: userCode } }))
+            afterContacts.set(contactId, { ...afterContacts.get(contactId), ...data })
+          } else {
+            childOps.push(db.contact.create({ data: { ...data, ...parent, createdBy: userCode, updatedBy: userCode } }))
+            afterContacts.set(`new:${key}`, { ...data, id: `new:${key}` })
+          }
+        }
+
+        //* sync columns are not in the config, so an untouched partner shows no changes and writes no row
+        const after = { ...existing, ...sapFields, id: partnerId, addresses: [...afterAddresses.values()], contacts: [...afterContacts.values()] } as BpMasterActivityRow // prettier-ignore
+        const changes = diffActivity(BP_MASTER_ACTIVITY_CONFIG, existing ?? null, after)
+
+        if (!existing || hasActivityChanges(changes)) {
+          activities.push({
+            ...activityBase,
+            action: existing ? 'UPDATE' : 'CREATE',
+            entity: { id: partnerId, code: bp.CardCode, label: bp.CardName },
+            changes,
+            summary: existing ? `${toActivitySummary('UPDATE', changes)} from SAP` : 'Created from SAP'
+          })
         }
 
         //! never deleted, a portal address or contact may be in use
@@ -282,7 +311,13 @@ export const syncBpMastersFromSapPage = action
       }
 
       //* partners first so a code case change cascades before the children write
-      await db.$transaction([...partnerOps, db.businessPartner.createMany({ data: partnerCreates, skipDuplicates: true }), ...childOps])
+      //* the activity rows ride in the same transaction, one insert for the page
+      await db.$transaction([
+        ...partnerOps,
+        db.businessPartner.createMany({ data: partnerCreates, skipDuplicates: true }),
+        ...childOps,
+        db.activityLog.createMany({ data: toActivityRows(activities) })
+      ])
 
       const result: BatchStepResult & { fetched: number } = {
         succeeded: partnerOps.length + partnerCreates.length,
@@ -312,6 +347,19 @@ export const finishBpMasterSyncFromSap = action
       const isCompleted = await completeSapSyncRun(dbCode, BP_SYNC_KEYS[type].from, { startedAt: new Date(startedAt), count })
 
       if (!isCompleted) return { status: 409, error: true, message: 'A newer sync replaced this one, its result was not saved', action: actionTag } // prettier-ignore
+
+      //* the run's summary, its batch id matches the page rows so View records lists what changed
+      const noun = type === 'C' ? 'customer' : 'vendor'
+
+      await logActivity(db, {
+        actor: ctx.actor,
+        module: type === 'C' ? 'CUSTOMERS' : 'VENDORS',
+        action: 'SYNC_FROM_SAP',
+        dbCode,
+        batchId: `${BP_SYNC_KEYS[type].from}:${startedAt}`,
+        summary: `Pulled ${count} ${noun}${count === 1 ? '' : 's'} from SAP`,
+        changes: { fields: [], meta: { count } }
+      })
 
       return { status: 200, error: false, message: 'Sync completed', action: actionTag }
     } catch (err: any) {
@@ -449,6 +497,14 @@ export const syncBpMastersToSap = action
             const children = { where: { dbCode, CardCode: row.CardCode }, data: { syncStatus: 'SYNCED' as const, syncedAt: now, syncError: null } } // prettier-ignore
             await tx.bpAddress.updateMany(children)
             await tx.contact.updateMany(children)
+
+            await logActivity(tx, {
+              actor: ctx.actor,
+              module: type === 'C' ? 'CUSTOMERS' : 'VENDORS',
+              action: 'SYNC_TO_SAP',
+              dbCode,
+              entity: { id: row.id, code: row.CardCode, label: row.CardName }
+            })
 
             return true
           })

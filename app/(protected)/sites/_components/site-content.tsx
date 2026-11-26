@@ -71,6 +71,132 @@ export default function SiteContent() {
       meta: { title: 'Description', exportValue: (row) => row.description }
     },
     {
+      accessorFn: (row) => (row?.isEnableInbound ? 'Yes' : 'No'),
+      accessorKey: 'isEnableInbound',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Inbound' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableInbound}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Inbound',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableInbound ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isEnableOutbound ? 'Yes' : 'No'),
+      accessorKey: 'isEnableOutbound',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Outbound' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableOutbound}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Outbound',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableOutbound ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isEnableMovement ? 'Yes' : 'No'),
+      accessorKey: 'isEnableMovement',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Movement' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableMovement}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Movement',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableMovement ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isEnableCycleCount ? 'Yes' : 'No'),
+      accessorKey: 'isEnableCycleCount',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='Cycle Count' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableCycleCount}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'Cycle Count',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableCycleCount ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isEnableQcTesting ? 'Yes' : 'No'),
+      accessorKey: 'isEnableQcTesting',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='QC/Testing' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableQcTesting}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'QC/Testing',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableQcTesting ? 'Yes' : 'No')
+      }
+    },
+    {
+      accessorFn: (row) => (row?.isEnableRma ? 'Yes' : 'No'),
+      accessorKey: 'isEnableRma',
+      filterFn: multiSelectFilterFn,
+      header: ({ column }) => <DataTableColumnHeader column={column} title='RMA' />,
+      cell: ({ row: { original: data } }) => (
+        <DataTableBooleanCell
+          value={data.isEnableRma}
+          display={{ type: 'text', true: 'Yes', false: 'No' }}
+          highlight={table.getState().globalFilter}
+        />
+      ),
+      meta: {
+        title: 'RMA',
+        options: [
+          { label: 'Yes', value: 'Yes' },
+          { label: 'No', value: 'No' }
+        ],
+        exportValue: (row) => (row.isEnableRma ? 'Yes' : 'No')
+      }
+    },
+    {
       accessorFn: (row) => (row?.isActive ? 'Yes' : 'No'),
       accessorKey: 'isActive',
       filterFn: multiSelectFilterFn,
@@ -128,24 +254,22 @@ export default function SiteContent() {
                   </TooltipWrapper>
                 </CanView>
 
-                {!isSystem && (
-                  <>
-                    <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                      <TooltipWrapper label='Edit'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/sites/${code}`)}>
-                          <Icons.pencil className='text-muted-foreground size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
+                <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                  <TooltipWrapper label='Edit'>
+                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/sites/${code}`)}>
+                      <Icons.pencil className='text-muted-foreground size-4' />
+                    </Button>
+                  </TooltipWrapper>
+                </CanView>
 
-                    <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                      <TooltipWrapper label='Delete'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
-                          <Icons.trash className='text-destructive size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
-                  </>
+                {!isSystem && (
+                  <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
                 )}
               </>
             ) : (
@@ -304,6 +428,12 @@ export default function SiteContent() {
           <DataTableToolbar>
             <DataTableColumnFilterWrapper>
               <DataTableGlobalSearch table={table} isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableInbound')} title='Inbound' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableOutbound')} title='Outbound' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableMovement')} title='Movement' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableCycleCount')} title='Cycle Count' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableQcTesting')} title='QC/Testing' isLoading={isLoading} />
+              <DataTableColumnFilter column={table.getColumn('isEnableRma')} title='RMA' isLoading={isLoading} />
               <DataTableColumnFilter column={table.getColumn('isActive')} title='Active' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('createdAt')} title='Created At' isLoading={isLoading} />
               <DataTableColumnDateFilter column={table.getColumn('updatedAt')} title='Updated At' isLoading={isLoading} />

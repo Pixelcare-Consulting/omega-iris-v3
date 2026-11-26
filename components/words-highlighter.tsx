@@ -22,7 +22,7 @@ export function WordsHighlighter({ value, highlight }: WordsHighlighterProps) {
       searchWords={searchWords}
       autoEscape
       textToHighlight={value ?? ''}
-      highlightClassName='bg-yellow-200 dark:bg-yellow-500/30 rounded-sm px-0.5'
+      highlightClassName='bg-primary/15 text-primary dark:bg-primary/30 rounded-sm px-0.5'
     />
   )
 }

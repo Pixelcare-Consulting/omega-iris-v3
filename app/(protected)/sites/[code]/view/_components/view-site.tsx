@@ -14,12 +14,13 @@ import SiteOverviewTab from './tabs/site-overview-tab'
 import { DEFAULT_TAB } from '@/constants/common'
 import { handleTabChange } from '@/lib/event-handler'
 import CanView from '@/components/rbac/can-view'
+import ActivityTimeline from '@/components/activity-log/activity-timeline'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
 
 type ViewSiteProps = { site: Site }
 
 export default function ViewSite({ site }: ViewSiteProps) {
-  const TABS_TITLE = ['Overview'] as const
+  const TABS_TITLE = ['Overview', 'Activity'] as const
   const TABS_CONTENT_VALUE = TABS_TITLE.map((_, index) => String(index))
 
   const router = useRouter()
@@ -53,13 +54,11 @@ export default function ViewSite({ site }: ViewSiteProps) {
                 </DropdownMenuItem>
               </CanView>
 
-              {!site.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/sites/${site.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/sites/${site.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -82,6 +81,10 @@ export default function ViewSite({ site }: ViewSiteProps) {
 
         <TabsContent value='0' className='min-h-0 flex-1'>
           <SiteOverviewTab site={site} />
+        </TabsContent>
+
+        <TabsContent value='1' className='min-h-0 flex-1'>
+          <ActivityTimeline module='SITES' entityId={site.id} />
         </TabsContent>
       </Tabs>
     </div>

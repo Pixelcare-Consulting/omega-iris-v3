@@ -33,6 +33,7 @@ export const itemMasterThumbnailSchema = z.object({
 
 //* the page loads the lookups once and sends them with every page
 export const itemMasterSyncFromSapPageSchema = z.object({
+  startedAt: z.iso.datetime(), //* the run's start, ties its activity rows to one batch
   since: z.string().nullable(),
   skip: z.number().int().min(0),
   metaData: z.object({

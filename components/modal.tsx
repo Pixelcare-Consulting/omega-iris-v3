@@ -31,6 +31,7 @@ type ModalProps = {
   isOpen?: boolean
   title?: string
   description?: string
+  badge?: React.ReactNode
   size?: ModalSize
   trigger?: React.ReactNode
   footer?: React.ReactNode
@@ -48,6 +49,7 @@ export default function Modal({
   isOpen,
   title,
   description,
+  badge,
   size = 'md',
   trigger,
   footer,
@@ -117,7 +119,13 @@ export default function Modal({
           {...extendedProps?.dialogHeaderProps}
           className={cn(!title && !description && 'sr-only', extendedProps?.dialogHeaderProps?.className)}
         >
-          <DialogTitle {...extendedProps?.dialogTitleProps}>{title ?? 'Dialog'}</DialogTitle>
+          <DialogTitle
+            {...extendedProps?.dialogTitleProps}
+            className={cn(badge && 'flex items-center gap-2', extendedProps?.dialogTitleProps?.className)}
+          >
+            {title ?? 'Dialog'}
+            {badge}
+          </DialogTitle>
           {description && <DialogDescription {...extendedProps?.dialogDescriptionProps}>{description}</DialogDescription>}
         </DialogHeader>
 

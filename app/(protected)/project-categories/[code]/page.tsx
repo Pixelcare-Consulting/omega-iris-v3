@@ -1,5 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
-import { UNAUTHORIZED_ROUTE } from '@/constants/common'
+import { notFound } from 'next/navigation'
 
 import { getCurrentUserWithAbility } from '@/actions/user'
 import { getProjectCategoryByCode } from '@/actions/project-category'
@@ -21,9 +20,6 @@ export default async function ProjectCategoryPage({ params }: { params: Promise<
     isAdd ? null : getProjectCategoryByCode(dbCode, decodeCodeParam(code).toUpperCase()), //* codes are stored uppercase
     getCurrentUserWithAbility()
   ])
-
-  //* system rows are view only, whatever the ability says
-  if (projectCategory?.isSystem) redirect(UNAUTHORIZED_ROUTE)
 
   //* check authorization for create, edit
   const requiredAction = isAdd ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT

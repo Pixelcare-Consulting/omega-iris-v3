@@ -15,7 +15,7 @@ export default function UnderDevelopment({
   className
 }: UnderDevelopmentProps) {
   return (
-    <div className={cn('flex h-full items-center justify-center', className)}>
+    <div className={cn('flex h-full w-full flex-1 items-center justify-center', className)}>
       <div className='flex flex-col items-center justify-center'>
         <Icons.construction className='text-primary size-14' />
         <div className='mt-2.5 flex flex-col items-center justify-center gap-1'>

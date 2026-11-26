@@ -41,12 +41,51 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
 
   const isCreate = code === 'add' || !site
 
-  const defaultValues = useMemo(() => ({ id: null, code: '', name: '', description: '', isActive: true }), [])
+  const defaultValues = useMemo(
+    () => ({
+      id: null,
+      code: '',
+      name: '',
+      description: '',
+      isEnableInbound: false,
+      isEnableOutbound: false,
+      isEnableMovement: false,
+      isEnableCycleCount: false,
+      isEnableQcTesting: false,
+      isEnableRma: false,
+      isActive: true
+    }),
+    []
+  )
 
   const values = useMemo(() => {
     if (site) {
-      const { id, code, name, description, isActive } = site
-      return { id, code, name, description: description ?? '', isActive }
+      const {
+        id,
+        code,
+        name,
+        description,
+        isEnableInbound,
+        isEnableOutbound,
+        isEnableMovement,
+        isEnableCycleCount,
+        isEnableQcTesting,
+        isEnableRma,
+        isActive
+      } = site
+      return {
+        id,
+        code,
+        name,
+        description: description ?? '',
+        isEnableInbound,
+        isEnableOutbound,
+        isEnableMovement,
+        isEnableCycleCount,
+        isEnableQcTesting,
+        isEnableRma,
+        isActive
+      }
     }
 
     if (isCreate) return defaultValues
@@ -202,6 +241,71 @@ export default function SiteForm({ pageMetaData, site }: SiteFormProps) {
 
                 <Column>
                   <TextareaField control={form.control} name='description' label='Description' />
+                </Column>
+
+                <Column>
+                  <Separator className='mt-3 mb-4' />
+                  <ReadOnlyFieldHeader title='Processes' description='Choose which processes the site allows' />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableInbound'
+                    label='Inbound'
+                    layout='choice-card'
+                    description='Site can receive stock'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableOutbound'
+                    label='Outbound'
+                    layout='choice-card'
+                    description='Site can ship stock'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableMovement'
+                    label='Movement'
+                    layout='choice-card'
+                    description='Site can move stock'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableCycleCount'
+                    label='Cycle Count'
+                    layout='choice-card'
+                    description='Stock at the site can be counted'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableQcTesting'
+                    label='QC/Testing'
+                    layout='choice-card'
+                    description='Stock at the site can be tested'
+                  />
+                </Column>
+
+                <Column md={6} lg={3}>
+                  <SwitchField
+                    control={form.control}
+                    name='isEnableRma'
+                    label='RMA'
+                    layout='choice-card'
+                    description='Site can take returns'
+                  />
                 </Column>
 
                 <Column>
