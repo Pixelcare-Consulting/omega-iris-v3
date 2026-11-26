@@ -16,6 +16,7 @@
     "db:seed": "pnpm db:reset && tsx --tsconfig tsconfig.json prisma/seed.ts && pnpm db:seed:sap-database && pnpm db:seed:role-sap-database",
     "db:seed:sap-database": "tsx --tsconfig tsconfig.json prisma/seed-sap-database.ts",
     "db:seed:role-sap-database": "tsx --tsconfig tsconfig.json prisma/seed-role-sap-database.ts",
+    "db:update-permission": "tsx --tsconfig tsconfig.json scripts/update-permissions.ts",
     "db:validate": "pnpm prisma validate",
     "files:migrate": "tsx --tsconfig tsconfig.json scripts/migrate-file-attachments.ts",
     "sap:smoke": "tsx --tsconfig tsconfig.json --conditions react-server scripts/sap-smoke.ts"

@@ -9,7 +9,8 @@ export const PERMISSIONS_ALLOWED_ACTIONS = {
   IMPORT: 'import',
   EXPORT: 'export',
   SYNC_TO_SAP: 'sync to sap',
-  SYNC_FROM_SAP: 'sync from sap'
+  SYNC_FROM_SAP: 'sync from sap',
+  VIEW_ALL: 'view all'
 } as const
 
 export const PERMISSIONS_CODES = {
@@ -37,6 +38,9 @@ export const PERMISSIONS_CODES = {
   PROJECT_CATEGORIES: 'p-project-categories',
   CUSTOMER_PROJECTS: 'p-customer-projects',
   ITEM_MASTERS: 'p-item-masters',
+  INBOUNDS: 'p-inbounds',
+  PACKAGING_UNITS: 'p-packaging-units',
+  SESSIONS: 'p-sessions',
   TEST: 'p-test'
 } as const
 
@@ -176,6 +180,33 @@ export const DEFAULT_PERMISSIONS: PermissionCreateManyInput[] = [
     parentCode: PERMISSIONS_CODES['INVENTORY'],
     isSystem: true,
     allowedActions: ['view', 'create', 'edit', 'delete', 'restore', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['INBOUNDS'],
+    name: 'Inbounds',
+    description: 'Inbounds Module',
+    isParent: false,
+    parentCode: PERMISSIONS_CODES['INVENTORY'],
+    isSystem: true,
+    allowedActions: ['view', 'view all', 'create', 'edit', 'import', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['PACKAGING_UNITS'],
+    name: 'Unique IDs',
+    description: 'Unique IDs Module',
+    isParent: false,
+    parentCode: PERMISSIONS_CODES['INVENTORY'],
+    isSystem: true,
+    allowedActions: ['view', 'edit', 'export']
+  },
+  {
+    code: PERMISSIONS_CODES['SESSIONS'],
+    name: 'Sessions',
+    description: 'Sessions Module',
+    isParent: false,
+    parentCode: null,
+    isSystem: true,
+    allowedActions: ['view', 'view all', 'create', 'edit', 'export']
   },
   {
     code: PERMISSIONS_CODES['PROJECT'],
