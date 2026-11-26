@@ -8,6 +8,7 @@ import {
   AlertDialogTrigger
 } from './ui/alert-dialog'
 import { Button } from './ui/button'
+import LoadingButton from './forms/button-field'
 import { cn } from '@/lib/utils'
 
 type ExtendedProps = {
@@ -30,6 +31,8 @@ type AlertModalProps = {
   onConfirmText?: string
   onCancel?: () => void
   onCancelText?: string
+  isLoading?: boolean
+  loadingText?: string
   children?: React.ReactNode
   extendedProps?: ExtendedProps
 }
@@ -43,6 +46,8 @@ export default function AlertModal({
   onConfirmText,
   onCancel,
   onCancelText,
+  isLoading,
+  loadingText,
   extendedProps
 }: AlertModalProps) {
   return (
@@ -62,12 +67,23 @@ export default function AlertModal({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter {...extendedProps?.alertDialogFooterProps}>
-          <Button variant='outline' {...extendedProps?.alertDialogCancelProps} onClick={onCancel}>
+          <Button
+            variant='outline'
+            {...extendedProps?.alertDialogCancelProps}
+            disabled={isLoading || extendedProps?.alertDialogCancelProps?.disabled}
+            onClick={onCancel}
+          >
             {onCancelText ?? 'Cancel'}
           </Button>
-          <Button variant='destructive' {...extendedProps?.alertDialogActionProps} onClick={onConfirm}>
+          <LoadingButton
+            variant='destructive'
+            {...extendedProps?.alertDialogActionProps}
+            isLoading={isLoading}
+            loadingText={loadingText ?? onConfirmText ?? 'Continue'}
+            onClick={onConfirm}
+          >
             {onConfirmText ?? 'Continue'}
-          </Button>
+          </LoadingButton>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

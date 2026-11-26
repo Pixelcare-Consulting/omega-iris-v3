@@ -126,7 +126,12 @@ import {
   Barcode,
   Building,
   Grid2x2,
-  FingerprintPattern
+  FingerprintPattern,
+  Pause,
+  Play,
+  CircleCheck,
+  ArrowDownToLine,
+  Send
 } from 'lucide-react'
 
 export const Icons = {
@@ -256,7 +261,12 @@ export const Icons = {
   barcode: Barcode,
   building: Building,
   grid: Grid2x2,
-  fingerprint: FingerprintPattern
+  fingerprint: FingerprintPattern,
+  pause: Pause,
+  play: Play,
+  circleCheck: CircleCheck,
+  arrowDownToLine: ArrowDownToLine,
+  send: Send
 }
 
 export type Icon = LucideIcon

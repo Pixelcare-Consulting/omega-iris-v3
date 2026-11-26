@@ -29,6 +29,13 @@ export const optionalNumber = z.coerce
   .nullish()
   .transform((v) => (v ? v : null))
 
+//* pickers hand back strings, and 0 stays a real value (a sap line number), unlike optionalNumber
+export const optionalNumeric = (isInt: boolean) =>
+  z.preprocess(
+    (value) => (value === '' || value === null || value === undefined ? null : Number(value)),
+    (isInt ? z.number().int() : z.number()).nullable()
+  )
+
 export const optionalString = z
   .string()
   .trim()
