@@ -54,13 +54,11 @@ export default function ViewSite({ site }: ViewSiteProps) {
                 </DropdownMenuItem>
               </CanView>
 
-              {!site.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/sites/${site.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/sites/${site.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

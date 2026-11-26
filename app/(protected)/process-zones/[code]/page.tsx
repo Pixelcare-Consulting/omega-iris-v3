@@ -1,5 +1,4 @@
-import { notFound, redirect } from 'next/navigation'
-import { UNAUTHORIZED_ROUTE } from '@/constants/common'
+import { notFound } from 'next/navigation'
 
 import { getCurrentUserWithAbility } from '@/actions/user'
 import { getProcessZoneByCode } from '@/actions/process-zone'
@@ -21,9 +20,6 @@ export default async function ProcessZonePage({ params }: { params: Promise<{ co
     isAdd ? null : getProcessZoneByCode(dbCode, decodeCodeParam(code).toUpperCase()), //* codes are stored uppercase
     getCurrentUserWithAbility()
   ])
-
-  //* system rows are view only, whatever the ability says
-  if (processZone?.isSystem) redirect(UNAUTHORIZED_ROUTE)
 
   //* check authorization for create, edit
   const requiredAction = isAdd ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT

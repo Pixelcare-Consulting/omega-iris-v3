@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger'
 import { roleFormSchema } from '@/schema/role'
 import { FilterOption } from '@/types/data-table'
 import { PERMISSIONS_ALLOWED_ACTIONS, PERMISSIONS_CODES } from '@/constants/permission'
+import { SUPER_USER_ROLE_KEY } from '@/constants/role'
 import { diffActivity, logActivity } from '@/lib/activity-log'
 import { ROLE_ACTIVITY_CONFIG, ROLE_ACTIVITY_INCLUDE } from '@/lib/activity-configs/role'
 
@@ -137,6 +138,11 @@ export const upsertRole = action
       //* update role
       if (code && code !== -1) {
         const before = await db.role.findUnique({ where: { code }, include: ROLE_ACTIVITY_INCLUDE })
+
+        //! the table hides edit for the super user role, this is the check behind it
+        if (before?.isSystem && before.key === SUPER_USER_ROLE_KEY) {
+          return { error: true, status: 403, message: 'Super user role cannot be edited!', action: actionTag }
+        }
 
         const updatedRole = await db.$transaction(async (tx) => {
           //* update role

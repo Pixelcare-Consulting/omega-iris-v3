@@ -54,13 +54,11 @@ export default function ViewProjectCategory({ projectCategory }: ViewProjectCate
                 </DropdownMenuItem>
               </CanView>
 
-              {!projectCategory.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/project-categories/${projectCategory.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/project-categories/${projectCategory.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

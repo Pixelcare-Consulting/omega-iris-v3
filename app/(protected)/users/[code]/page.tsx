@@ -1,4 +1,5 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
+import { UNAUTHORIZED_ROUTE } from '@/constants/common'
 
 import { getCurrentUserWithAbility, getUserByCode } from '@/actions/user'
 import ContentContainer from '../../_components/content-container'
@@ -14,6 +15,9 @@ export default async function UserPage({ params }: { params: Promise<{ code: str
   const [user, currentUserWithAbility] = await Promise.all([isAdd ? null : getUserByCode(parseInt(code)), getCurrentUserWithAbility()])
 
   if (!isAdd && !user) notFound()
+
+  //* system users are view only, whatever the ability says
+  if (user?.isSystem) redirect(UNAUTHORIZED_ROUTE)
 
   //* check authorization for create, edit
   const requiredAction = isAdd ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT

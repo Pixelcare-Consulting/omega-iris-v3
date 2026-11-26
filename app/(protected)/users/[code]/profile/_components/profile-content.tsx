@@ -12,7 +12,8 @@ export default function ProfileContent({ user }: ProfileContentProps) {
       <Header title={`${user.name}'s Profile`} description='View and edit your profile information' />
 
       <ScrollArea className='min-h-0 flex-1' type='auto'>
-        <ProfileBasicInfoForm user={user} />
+        {/* //* a system user's basic info can't be edited */}
+        {!user.isSystem && <ProfileBasicInfoForm user={user} />}
         <ProfileChangePasswordForm user={user} />
       </ScrollArea>
     </div>

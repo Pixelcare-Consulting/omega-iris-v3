@@ -240,6 +240,11 @@ export const upsertUser = action
 
         if (!user) return { error: true, status: 404, message: 'User not found!', action: actionTag }
 
+        //! the table hides edit for system users, this is the check behind it
+        if (user.isSystem) {
+          return { error: true, status: 403, message: 'System generated user cannot be edited!', action: actionTag }
+        }
+
         let hashedPassword = user.accounts?.[0]?.password
 
         if (newPassword) hashedPassword = await hashPassword(newPassword)
@@ -401,6 +406,11 @@ export const updateBasicInfo = action
       const user = await db.user.findUnique({ where: { code }, include: { role: true } })
 
       if (!user) return { error: true, status: 404, message: 'User not found!', action: actionTag }
+
+      //! the profile link is hidden for system users, this is the check behind it
+      if (user.isSystem) {
+        return { error: true, status: 403, message: 'System generated user cannot be edited!', action: actionTag }
+      }
 
       const name = toFullName(data)
 

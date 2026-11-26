@@ -254,24 +254,22 @@ export default function SiteContent() {
                   </TooltipWrapper>
                 </CanView>
 
-                {!isSystem && (
-                  <>
-                    <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                      <TooltipWrapper label='Edit'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/sites/${code}`)}>
-                          <Icons.pencil className='text-muted-foreground size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
+                <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                  <TooltipWrapper label='Edit'>
+                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/sites/${code}`)}>
+                      <Icons.pencil className='text-muted-foreground size-4' />
+                    </Button>
+                  </TooltipWrapper>
+                </CanView>
 
-                    <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                      <TooltipWrapper label='Delete'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
-                          <Icons.trash className='text-destructive size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
-                  </>
+                {!isSystem && (
+                  <CanView subject={PERMISSIONS_CODES.SITES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
                 )}
               </>
             ) : (

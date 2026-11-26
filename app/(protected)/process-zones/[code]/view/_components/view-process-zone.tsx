@@ -54,13 +54,11 @@ export default function ViewProcessZone({ processZone }: ViewProcessZoneProps) {
                 </DropdownMenuItem>
               </CanView>
 
-              {!processZone.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.PROCESS_ZONES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/process-zones/${processZone.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.PROCESS_ZONES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/process-zones/${processZone.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

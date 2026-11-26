@@ -163,11 +163,6 @@ export const upsertProjectCategory = action
 
         if (!existing) return { status: 404, error: true, message: 'Project category not found!', action: actionTag }
 
-        //! the table hides these for system rows, this is the check behind it
-        if (existing.isSystem) {
-          return { status: 403, error: true, message: 'System generated project category cannot be edited!', action: actionTag }
-        }
-
         //! code is never written here, even if the client sent one
         const projectCategory = await db.$transaction(async (tx) => {
           const result = await tx.projectCategory.update({ where: { id }, data: { ...data, updatedBy: userCode } })

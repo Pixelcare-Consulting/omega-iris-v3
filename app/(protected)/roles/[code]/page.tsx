@@ -19,7 +19,7 @@ export default async function RolePage({ params }: { params: Promise<{ code: str
   if (!isAdd && !role) notFound()
 
   //* a row-level rule CASL can't express, the super user role is never editable, whatever the ability says
-  if (role?.key === SUPER_USER_ROLE_KEY) redirect(UNAUTHORIZED_ROUTE)
+  if (role?.isSystem && role.key === SUPER_USER_ROLE_KEY) redirect(UNAUTHORIZED_ROUTE)
 
   //* check authorization for create, edit
   const requiredAction = isAdd ? PERMISSIONS_ALLOWED_ACTIONS.CREATE : PERMISSIONS_ALLOWED_ACTIONS.EDIT

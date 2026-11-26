@@ -54,13 +54,11 @@ export default function ViewCustomerProject({ customerProject }: ViewCustomerPro
                 </DropdownMenuItem>
               </CanView>
 
-              {!customerProject.isSystem && (
-                <CanView subject={PERMISSIONS_CODES.CUSTOMER_PROJECTS} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                  <DropdownMenuItem onClick={() => router.push(`/customer-projects/${customerProject.code}`)}>
-                    <Icons.pencil /> Edit
-                  </DropdownMenuItem>
-                </CanView>
-              )}
+              <CanView subject={PERMISSIONS_CODES.CUSTOMER_PROJECTS} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                <DropdownMenuItem onClick={() => router.push(`/customer-projects/${customerProject.code}`)}>
+                  <Icons.pencil /> Edit
+                </DropdownMenuItem>
+              </CanView>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

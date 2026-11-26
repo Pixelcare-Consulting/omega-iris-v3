@@ -170,24 +170,23 @@ export default function ProjectCategoryContent() {
                   </TooltipWrapper>
                 </CanView>
 
-                {!isSystem && (
-                  <>
-                    <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
-                      <TooltipWrapper label='Edit'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/project-categories/${code}`)}>
-                          <Icons.pencil className='text-muted-foreground size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
+                <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.EDIT}>
+                  <TooltipWrapper label='Edit'>
+                    <Button variant='ghost' size='icon-sm' onClick={() => router.push(`/project-categories/${code}`)}>
+                      <Icons.pencil className='text-muted-foreground size-4' />
+                    </Button>
+                  </TooltipWrapper>
+                </CanView>
 
-                    <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
-                      <TooltipWrapper label='Delete'>
-                        <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
-                          <Icons.trash className='text-destructive size-4' />
-                        </Button>
-                      </TooltipWrapper>
-                    </CanView>
-                  </>
+                {/* //* system rows can't be deleted */}
+                {!isSystem && (
+                  <CanView subject={PERMISSIONS_CODES.PROJECT_CATEGORIES} action={PERMISSIONS_ALLOWED_ACTIONS.DELETE}>
+                    <TooltipWrapper label='Delete'>
+                      <Button variant='ghost' size='icon-sm' onClick={() => deleteConfirm.open({ code, name })}>
+                        <Icons.trash className='text-destructive size-4' />
+                      </Button>
+                    </TooltipWrapper>
+                  </CanView>
                 )}
               </>
             ) : (
