@@ -119,6 +119,8 @@ export function toActivitySummary(action: ActivityAction, changes?: ActivityChan
 
   if (action === 'BULK_CREATE' && changes?.meta) return `Generated ${plural(Number(changes.meta.created ?? 0), moduleLabel)}`
 
+  if (action === 'BULK_DELETE' && changes?.meta) return `Deleted ${plural(Number(changes.meta.deleted ?? 0), moduleLabel)}`
+
   return ACTIVITY_ACTIONS[action].label
 }
 

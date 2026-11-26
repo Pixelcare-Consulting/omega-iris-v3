@@ -65,7 +65,7 @@ const hasChanges = (row: ActivityLog) => {
 }
 
 //* the summary rows of a pull, import or generate run
-const RUN_SUMMARY_ACTIONS: string[] = ['SYNC_FROM_SAP', 'IMPORT', 'BULK_CREATE']
+const RUN_SUMMARY_ACTIONS: string[] = ['SYNC_FROM_SAP', 'IMPORT', 'BULK_CREATE', 'BULK_DELETE']
 
 export default function AuditLogContent() {
   const DATA_TABLE_UNIQUE_KEY = 'audit-logs'

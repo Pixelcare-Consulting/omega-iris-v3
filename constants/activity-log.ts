@@ -22,6 +22,9 @@ export const ACTIVITY_MODULES = {
   CONTAINERS: { label: 'Container', permission: PERMISSIONS_CODES.CONTAINERS },
   PROJECT_CATEGORIES: { label: 'Project Category', permission: PERMISSIONS_CODES.PROJECT_CATEGORIES },
   CUSTOMER_PROJECTS: { label: 'Customer Project', permission: PERMISSIONS_CODES.CUSTOMER_PROJECTS },
+  SESSIONS: { label: 'Session', permission: PERMISSIONS_CODES.SESSIONS },
+  INBOUNDS: { label: 'Inbound', permission: PERMISSIONS_CODES.INBOUNDS },
+  PACKAGING_UNITS: { label: 'Unique ID', permission: PERMISSIONS_CODES.PACKAGING_UNITS },
   AUTH: { label: 'Sign-in' }
 } as const satisfies Record<string, ActivityModuleConfig>
 
@@ -38,6 +41,7 @@ export const ACTIVITY_ACTIONS = {
   SYNC_FROM_SAP: { label: 'Pulled from SAP', tone: 'gray' },
   IMPORT: { label: 'Imported', tone: 'green' },
   BULK_CREATE: { label: 'Generated', tone: 'green' },
+  BULK_DELETE: { label: 'Deleted', tone: 'red' },
   SIGN_IN: { label: 'Signed in', tone: 'gray' },
   SIGN_IN_FAILED: { label: 'Sign-in failed', tone: 'red' },
   LOCKED_OUT: { label: 'Locked out', tone: 'red' }
