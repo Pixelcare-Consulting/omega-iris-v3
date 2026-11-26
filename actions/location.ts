@@ -425,6 +425,13 @@ export const deleteLocation = action
         return { status: 409, error: true, message: 'Location is in use by containers!', action: actionTag }
       }
 
+      //* any live unit here blocks it
+      const unitCount = await db.packagingUnit.count({ where: { dbCode, locationCode: location.code, deletedAt: null } })
+
+      if (unitCount > 0) {
+        return { status: 409, error: true, message: 'Location is in use by unique IDs!', action: actionTag }
+      }
+
       await db.$transaction(async (tx) => {
         await tx.location.update({ where: { id: location.id }, data: { deletedAt: new Date(), deletedBy: userCode } })
 

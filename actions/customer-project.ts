@@ -178,11 +178,6 @@ export const upsertCustomerProject = action
 
       if (!isCreate && !existing) return { status: 404, error: true, message: 'Customer project not found!', action: actionTag }
 
-      //! the table hides these for system rows, this is the check behind it
-      if (existing?.isSystem) {
-        return { status: 403, error: true, message: 'System generated customer project cannot be edited!', action: actionTag }
-      }
-
       //* category is locked after create, so only a new project checks it
       if (isCreate) {
         const category = await db.projectCategory.findFirst({
@@ -292,6 +287,13 @@ export const deleteCustomerProject = action
 
       if (containerCount > 0) {
         return { status: 409, error: true, message: 'Customer project is in use by containers!', action: actionTag }
+      }
+
+      //* any live unit here blocks it
+      const unitCount = await db.packagingUnit.count({ where: { dbCode, customerProjectCode: customerProject.code, deletedAt: null } })
+
+      if (unitCount > 0) {
+        return { status: 409, error: true, message: 'Customer project is in use by unique IDs!', action: actionTag }
       }
 
       await db.$transaction(async (tx) => {

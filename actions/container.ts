@@ -18,6 +18,7 @@ import { formatContainerCode, getContainerPrefixParts } from '@/lib/container'
 import { createId } from '@paralleldrive/cuid2'
 import { diffActivity, logActivities, logActivity } from '@/lib/activity-log'
 import { CONTAINER_ACTIVITY_CONFIG } from '@/lib/activity-configs/container'
+import { FilterOption } from '@/types/data-table'
 
 const COMMON_CONTAINER_INCLUDE = {
   projectCategory: true,
@@ -44,6 +45,20 @@ export async function getContainerByCode(dbCode: string | null, code?: string | 
   } catch (err: any) {
     logger.error(err, '[GET_CONTAINER_BY_CODE_ERROR]:')
     return null
+  }
+}
+
+//* list filter only, every live container so old rows can be found
+export async function getContainerOptions(dbCode: string | null): Promise<FilterOption[]> {
+  if (!dbCode) return []
+
+  try {
+    const containers = await db.container.findMany({ where: { dbCode, deletedAt: null }, select: { code: true }, orderBy: { code: 'asc' } })
+
+    return containers.map((container) => ({ label: container.code, value: container.code }))
+  } catch (err: any) {
+    logger.error(err, '[GET_CONTAINER_OPTIONS_ERROR]:')
+    return []
   }
 }
 
