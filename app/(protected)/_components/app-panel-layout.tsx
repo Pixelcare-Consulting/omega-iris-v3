@@ -5,21 +5,24 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import FullscreenProvider from '@/components/providers/fullscreen-provider'
 import { useFullscreen } from '@/hooks/use-fullscreen'
 import AppHeader from './app-header'
+import SessionBar from './session-bar'
 import { AuthSessionUser } from '@/types/auth'
 import { SapDatabase } from '@/prisma/generated/client'
+import { OpenSession } from '@/actions/session'
 
 type AppPanelLayoutProps = {
   children: React.ReactNode
   user: AuthSessionUser | null
   dbCode: string | null
   sapDatabases: SapDatabase[]
+  openSession: OpenSession | null
 }
 
 //! a client component, `children` still arrives rendered so the pages stay server components
-export default function AppPanelLayout({ children, user, dbCode, sapDatabases }: AppPanelLayoutProps) {
+export default function AppPanelLayout({ children, user, dbCode, sapDatabases, openSession }: AppPanelLayoutProps) {
   return (
     <FullscreenProvider>
-      <AppPanelShell user={user} dbCode={dbCode} sapDatabases={sapDatabases}>
+      <AppPanelShell user={user} dbCode={dbCode} sapDatabases={sapDatabases} openSession={openSession}>
         {children}
       </AppPanelShell>
     </FullscreenProvider>
@@ -27,7 +30,7 @@ export default function AppPanelLayout({ children, user, dbCode, sapDatabases }:
 }
 
 //* split out because the provider has to wrap whoever reads it
-function AppPanelShell({ children, user, dbCode, sapDatabases }: AppPanelLayoutProps) {
+function AppPanelShell({ children, user, dbCode, sapDatabases, openSession }: AppPanelLayoutProps) {
   const { isFullscreen } = useFullscreen()
 
   return (
@@ -39,6 +42,7 @@ function AppPanelShell({ children, user, dbCode, sapDatabases }: AppPanelLayoutP
         {/* //* h-svh sizes this to the smallest viewport height */}
         <div className='flex h-svh flex-col bg-neutral-100'>
           {!isFullscreen && <AppHeader user={user} dbCode={dbCode} sapDatabases={sapDatabases} />}
+          {!isFullscreen && <SessionBar session={openSession} />}
 
           {/* //! never scrolls, a page taller than the viewport scrolls inside itself so the header stays put */}
           <div className='min-h-0 flex-1 overflow-hidden'>{children}</div>
